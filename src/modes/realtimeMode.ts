@@ -91,19 +91,25 @@ export class RealtimeMode {
       }
 
       // Optimize prompt with timeout
-      let optimizedPrompt: string | undefined;
+      let optimizationResult: { enhancedPrompt: string; intent: "ask" | "edit" } | undefined;
 
       try {
         stream.progress("Optimizing your prompt...");
 
-        optimizedPrompt = await Promise.race([
-          this.optimizer.optimize(promptWithContext, model, token),
-          this.createTimeout(this.timeoutMs),
+        // We need to cast the timeout to any because optimization returns an object now
+        optimizationResult = await Promise.race([
+          this.optimizer.optimizeStructured(promptWithContext, model, token),
+          this.createTimeout(this.timeoutMs) as any,
         ]);
         
         // Render the response with buttons
-        if (optimizedPrompt) {
-            this.renderInteractiveResponse(originalPrompt, optimizedPrompt, stream);
+        if (optimizationResult) {
+            this.renderInteractiveResponse(
+              originalPrompt, 
+              optimizationResult.enhancedPrompt, 
+              optimizationResult.intent, 
+              stream
+            );
         }
 
       } catch (error) {
@@ -120,9 +126,6 @@ export class RealtimeMode {
         stream.markdown(
           "⚠️ Optimization timed out or failed. Falling back to original prompt.\n\n",
         );
-        
-        // Show original prompt buttons even on failure? 
-        // For now just error out gracefully
       }
 
     } catch (error) {
@@ -139,30 +142,50 @@ export class RealtimeMode {
   private renderInteractiveResponse(
       original: string, 
       optimized: string, 
+      intent: "ask" | "edit",
       stream: vscode.ChatResponseStream
     ) {
       
       stream.markdown(`**Optimized Prompt**\n\n`);
       
-      // Use block quote or code block to highlight the prompt
+      // Use block quote to highlight the prompt
       stream.markdown(`> ${optimized.replace(/\n/g, "\n> ")}\n\n`);
       
-      // Add actionable buttons
+      if (intent === "edit") {
+        // Edit/Agent Mode Buttons
+        stream.button({
+            command: 'promptBooster.runPrompt',
+            title: '$(sparkle) Apply Edits',
+            tooltip: 'Run this prompt to apply edits',
+            arguments: [optimized]
+        });
+        stream.button({
+          command: 'promptBooster.createPromptFile',
+          title: '$(edit) Refine in File', 
+          tooltip: 'Open in editor for manual refinement',
+          arguments: [original, optimized]
+        });
+      } else {
+        // Q&A Mode Buttons
+        stream.button({
+            command: 'promptBooster.runPrompt',
+            title: '$(comment-discussion) Ask Copilot',
+            tooltip: 'Send enhanced prompt to Copilot',
+            arguments: [optimized]
+        });
+        stream.button({
+          command: 'promptBooster.createPromptFile',
+          title: '$(edit) Edit',
+          tooltip: 'Edit prompt before sending',
+          arguments: [original, optimized]
+        });
+      }
+
+      // Original Fallback
       stream.button({
           command: 'promptBooster.runPrompt',
-          title: '🚀 Run Optimized',
-          arguments: [optimized]
-      });
-
-      stream.button({
-        command: 'promptBooster.createPromptFile',
-        title: '✏️ Edit in File',
-        arguments: [original, optimized]
-      });
-
-      stream.button({
-          command: 'promptBooster.runPrompt',
-          title: '↩️ Use Original',
+          title: '$(reply) Use Original',
+          tooltip: 'Revert to original prompt',
           arguments: [original]
       });
   }

@@ -16,9 +16,22 @@ export class PromptOptimizer {
     model: vscode.LanguageModelChat,
     cancellationToken?: vscode.CancellationToken,
   ): Promise<string> {
+    const { enhancedPrompt } = await this.optimizeStructured(
+      prompt,
+      model,
+      cancellationToken,
+    );
+    return enhancedPrompt;
+  }
+
+  async optimizeStructured(
+    prompt: string,
+    model: vscode.LanguageModelChat,
+    cancellationToken?: vscode.CancellationToken,
+  ): Promise<{ enhancedPrompt: string; intent: "ask" | "edit" }> {
     const systemPrompt = this.buildSystemPrompt();
 
-    this.outputChannel.appendLine("Starting prompt optimization...");
+    this.outputChannel.appendLine("Starting structured prompt optimization...");
     this.outputChannel.appendLine(
       `Original prompt length: ${prompt.length} characters`,
     );
@@ -37,13 +50,29 @@ export class PromptOptimizer {
       }
 
       result = result.trim();
+      
+      // Clean up markdown code blocks if present (common with LLMs even when asked for pure JSON)
+      result = result.replace(/^```json\n/, "").replace(/\n```$/, "").replace(/^```\n/, "");
 
       this.outputChannel.appendLine(
-        `Optimized prompt length: ${result.length} characters`,
+        `AI Response length: ${result.length} characters`,
       );
-      this.outputChannel.appendLine("Optimization completed successfully");
 
-      return result;
+      let parsed: { enhancedPrompt: string; intent: "ask" | "edit" };
+      try {
+        parsed = JSON.parse(result);
+      } catch (e) {
+        // Fallback if JSON parsing fails
+        this.outputChannel.appendLine("Failed to parse JSON response. Fallback to text.");
+        return {
+          enhancedPrompt: result,
+          intent: "ask", // Default to ask
+        };
+      }
+
+      this.outputChannel.appendLine(`Optimization completed. Intent: ${parsed.intent}`);
+      return parsed;
+
     } catch (error) {
       this.outputChannel.appendLine(`Optimization error: ${error}`);
 
@@ -58,28 +87,36 @@ export class PromptOptimizer {
   }
 
   private buildSystemPrompt(): string {
-    return `You are a prompt expert. Your task is to rewrite the user's raw prompt into a highly effective, structured prompt for an AI coding assistant.
+    return `You are a prompt expert. Your task is to rewrite the user's raw prompt and determine their intent.
 
-Follow this structure for the enhanced prompt:
+Return a JSON object with this exact structure:
+{
+  "intent": "ask" | "edit",
+  "enhancedPrompt": "..."
+}
+
+Rules for Intent:
+- "edit": Use this if the user wants to write code, modify files, fix bugs, or generate new files.
+- "ask": Use this for questions, explanations, concepts, or general help that doesn't strictly require code modification.
+
+Rules for Enhanced Prompt:
+Follow this structure string for the "enhancedPrompt" value:
 **Task**
-[A clear, concise title or summary of the objective]
+[Clear objective]
 
 **Context**
-[Infer relevant technical context (languages, frameworks, etc.) based on the user's request. If strictly unknown, generic terms are acceptable, but try to be specific based on standard conventions.]
+[Technical context]
 
 **Requirements**
-[Break down the user's request into specific, actionable steps or rules. Use bullet points.]
-- Rule 1
-- Rule 2...
+[Bullet points]
 
 **Output**
-[Specify exactly what the AI should return (e.g., "Return only the code," "Explain the changes," "JSON format," etc.)]
+[Expected output format]
 
 IMPORTANT:
-1. Return ONLY the enhanced prompt. Do NOT include any introductory or concluding text.
-2. Do NOT answer the prompt yourself. You are only improving the phrasing and structure of the request.
-3. If the user's request is very short, expand it with best practices relevant to the topic.
-4. Keep the tone professional and direct.`;
+- Output valid JSON only.
+- Do NOT use markdown code blocks (\`\`\`).
+- Escape newlines in the JSON string properly.`;
   }
 
   async optimizeWithProgress(
