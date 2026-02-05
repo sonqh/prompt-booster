@@ -1,13 +1,12 @@
 /**
  * Real-time mode implementation - Mode 2
- * Intercepts chat prompts and shows preview
+ * Intercepts chat prompts and shows preview with interactive buttons
  */
 
 import * as vscode from "vscode";
 import { PromptOptimizer } from "../promptBooster";
 import { LanguageModelSelector } from "../models/languageModels";
 import { ModeManager } from "../config/settings";
-import { PreviewPanel } from "../ui/previewPanel";
 
 export class RealtimeMode {
   private readonly timeoutMs = 20000; // 20 second timeout
@@ -16,7 +15,6 @@ export class RealtimeMode {
     private modeManager: ModeManager,
     private optimizer: PromptOptimizer,
     private modelSelector: LanguageModelSelector,
-    private previewPanel: PreviewPanel,
     private outputChannel: vscode.OutputChannel,
   ) {}
 
@@ -102,6 +100,12 @@ export class RealtimeMode {
           this.optimizer.optimize(promptWithContext, model, token),
           this.createTimeout(this.timeoutMs),
         ]);
+        
+        // Render the response with buttons
+        if (optimizedPrompt) {
+            this.renderInteractiveResponse(originalPrompt, optimizedPrompt, stream);
+        }
+
       } catch (error) {
         // If optimization fails or times out, use prompt with context
         this.outputChannel.appendLine(
@@ -114,63 +118,53 @@ export class RealtimeMode {
         }
 
         stream.markdown(
-          "⚠️ Optimization timed out. Using prompt with references included...\n\n",
+          "⚠️ Optimization timed out or failed. Falling back to original prompt.\n\n",
         );
-
-        this.outputChannel.appendLine(
-          "Falling back to prompt with context (includes references)",
-        );
-        optimizedPrompt = promptWithContext;
+        
+        // Show original prompt buttons even on failure? 
+        // For now just error out gracefully
       }
 
-      // If timeout or error occurred, optimizedPrompt may be original
-      if (!optimizedPrompt) {
-        optimizedPrompt = promptWithContext;
-        this.outputChannel.appendLine(
-          "Using original prompt (no optimization)",
-        );
-      }
-
-      // Show preview if enabled
-      let finalPrompt = optimizedPrompt;
-
-      if (this.modeManager.isShowPreviewEnabled()) {
-        try {
-          const previewResult = await this.previewPanel.showInlinePreview(
-            originalPrompt,
-            optimizedPrompt,
-          );
-
-          if (!previewResult) {
-            // User cancelled
-            this.outputChannel.appendLine("User cancelled preview");
-            stream.markdown("✓ Request cancelled.");
-            return;
-          }
-
-          finalPrompt = previewResult.prompt;
-          this.outputChannel.appendLine(`User action: ${previewResult.action}`);
-        } catch (error) {
-          // Preview failed - use optimized prompt
-          this.outputChannel.appendLine(
-            `Preview failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
-          finalPrompt = optimizedPrompt;
-        }
-      }
-
-      // Log final prompt
-      this.outputChannel.appendLine("=== Final Prompt ===");
-      this.outputChannel.appendLine(finalPrompt);
-
-      // Send optimized response directly
-      await this.sendOptimizedResponse(finalPrompt, stream, model, token);
     } catch (error) {
       this.outputChannel.appendLine(`Error: ${error}`);
       stream.markdown(
         `❌ Error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Render the optimized prompt and interactive buttons
+   */
+  private renderInteractiveResponse(
+      original: string, 
+      optimized: string, 
+      stream: vscode.ChatResponseStream
+    ) {
+      
+      stream.markdown(`**Optimized Prompt**\n\n`);
+      
+      // Use block quote or code block to highlight the prompt
+      stream.markdown(`> ${optimized.replace(/\n/g, "\n> ")}\n\n`);
+      
+      // Add actionable buttons
+      stream.button({
+          command: 'promptBooster.runPrompt',
+          title: '🚀 Run Optimized',
+          arguments: [optimized]
+      });
+
+      stream.button({
+        command: 'promptBooster.createPromptFile',
+        title: '✏️ Edit in File',
+        arguments: [original, optimized]
+      });
+
+      stream.button({
+          command: 'promptBooster.runPrompt',
+          title: '↩️ Use Original',
+          arguments: [original]
+      });
   }
 
   /**
@@ -228,36 +222,6 @@ export class RealtimeMode {
     }
 
     return enhancedPrompt;
-  }
-
-  /**
-   * Send optimized response directly using the AI model
-   */
-  private async sendOptimizedResponse(
-    prompt: string,
-    stream: vscode.ChatResponseStream,
-    model: vscode.LanguageModelChat,
-    token: vscode.CancellationToken,
-  ): Promise<void> {
-    try {
-      this.outputChannel.appendLine("Sending optimized prompt to AI...");
-
-      const messages = [vscode.LanguageModelChatMessage.User(prompt)];
-
-      const request = await model.sendRequest(messages, {}, token);
-
-      // Stream response directly - no "forwarding" message
-      for await (const chunk of request.text) {
-        stream.markdown(chunk);
-      }
-
-      this.outputChannel.appendLine("Response streaming complete");
-    } catch (error) {
-      this.outputChannel.appendLine(
-        `Response error: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw error;
-    }
   }
 
   /**

@@ -190,16 +190,23 @@ Instructions:
         `Cleaned content length: ${content.length} characters`,
       );
 
-      // TODO: Send to Copilot chat (requires chat participant implementation)
-      // For now, just show the content
-      vscode.window.showInformationMessage(
-        `Prompt ready to process (${content.length} chars). Chat integration coming soon!`,
+      this.outputChannel.appendLine(
+        `Cleaned content length: ${content.length} characters`,
       );
 
-      // Show in output channel
-      this.outputChannel.appendLine("=== Prompt Content ===");
-      this.outputChannel.appendLine(content);
-      this.outputChannel.show();
+      // Execute in Chat
+      const success = await vscode.commands.executeCommand("workbench.action.chat.open", {
+        query: content,
+      });
+      
+      if (!success) {
+          // Fallback if the command is not available or failed
+          vscode.window.showInformationMessage(
+             `Prompt ready! Copying to clipboard...`,
+          );
+          await vscode.env.clipboard.writeText(content);
+      }
+
     } catch (error) {
       this.outputChannel.appendLine(`Error processing file: ${error}`);
       vscode.window.showErrorMessage(

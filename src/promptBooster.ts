@@ -58,17 +58,28 @@ export class PromptOptimizer {
   }
 
   private buildSystemPrompt(): string {
-    return `You are a prompt optimization assistant. Enhance the following prompt by:
+    return `You are a prompt expert. Your task is to rewrite the user's raw prompt into a highly effective, structured prompt for an AI coding assistant.
 
-- Making instructions explicit and unambiguous
-- Adding relevant context and constraints
-- Removing redundancy while preserving intent
-- Using proper Markdown formatting for better readability
-- Organizing requirements as clear bulleted or numbered lists
-- Adding specific details where instructions are vague
-- Structuring the prompt with logical sections if complex
+Follow this structure for the enhanced prompt:
+**Task**
+[A clear, concise title or summary of the objective]
 
-IMPORTANT: Return ONLY the enhanced prompt text. Do not include any explanations, meta-commentary, or notes about what you changed. The output should be ready to use as-is.`;
+**Context**
+[Infer relevant technical context (languages, frameworks, etc.) based on the user's request. If strictly unknown, generic terms are acceptable, but try to be specific based on standard conventions.]
+
+**Requirements**
+[Break down the user's request into specific, actionable steps or rules. Use bullet points.]
+- Rule 1
+- Rule 2...
+
+**Output**
+[Specify exactly what the AI should return (e.g., "Return only the code," "Explain the changes," "JSON format," etc.)]
+
+IMPORTANT:
+1. Return ONLY the enhanced prompt. Do NOT include any introductory or concluding text.
+2. Do NOT answer the prompt yourself. You are only improving the phrasing and structure of the request.
+3. If the user's request is very short, expand it with best practices relevant to the topic.
+4. Keep the tone professional and direct.`;
   }
 
   async optimizeWithProgress(

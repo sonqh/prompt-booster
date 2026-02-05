@@ -12,13 +12,14 @@ import { PromptOptimizer } from "./promptBooster";
 import { ManualMode } from "./modes/manualMode";
 import { FileMode } from "./modes/fileMode";
 import { RealtimeMode } from "./modes/realtimeMode";
-import { PreviewPanel } from "./ui/previewPanel";
+import { ChatCommands } from "./commands/chatCommands";
 import { ProcessButton, PromptFileCodeLensProvider } from "./ui/processButton";
 
 let outputChannel: vscode.OutputChannel;
 let modeManager: ModeManager;
 let statusBar: ModeStatusBar;
 let processButton: ProcessButton;
+let chatCommands: ChatCommands;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("PromptBooster extension is now active");
@@ -43,6 +44,20 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize mode handlers
   const manualMode = new ManualMode(optimizer, modelSelector, outputChannel);
   const fileMode = new FileMode(outputChannel);
+  chatCommands = new ChatCommands(fileMode, outputChannel);
+
+  // Register Chat Helper Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand("promptBooster.runPrompt", async (prompt: string) => {
+        await chatCommands.runPrompt(prompt);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("promptBooster.createPromptFile", async (original: string, optimized: string) => {
+        await chatCommands.createPromptFile(original, optimized);
+    })
+  );
 
   // Register commands
   const boostCommand = vscode.commands.registerCommand(
@@ -180,12 +195,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register chat participant for real-time mode
   try {
-    const previewPanel = new PreviewPanel();
     const realtimeMode = new RealtimeMode(
       modeManager,
       optimizer,
       modelSelector,
-      previewPanel,
       outputChannel,
     );
 
@@ -233,7 +246,9 @@ export function activate(context: vscode.ExtensionContext) {
 
         outputChannel.appendLine(`Current mode: ${mode}`);
         outputChannel.appendLine(`Auto-optimize: ${autoOptimize}`);
-        outputChannel.appendLine(`Show preview: ${showPreview}`);
+        outputChannel.appendLine(`Current mode: ${mode}`);
+        outputChannel.appendLine(`Auto-optimize: ${autoOptimize}`);
+        // outputChannel.appendLine(`Show preview: ${showPreview}`); // Deprecated setting
 
         if (mode !== "realtime") {
           vscode.window.showWarningMessage(
@@ -273,24 +288,14 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Show preview
         if (showPreview) {
-          const previewPanel = new PreviewPanel();
-          const result = await previewPanel.showInlinePreview(
-            testPrompt,
-            optimized,
-          );
-
-          if (result) {
-            outputChannel.appendLine(`User action: ${result.action}`);
-            outputChannel.appendLine(`Final prompt: ${result.prompt}`);
+            outputChannel.appendLine("Preview Panel is deprecated in favor of Native Chat UI.");
+            outputChannel.appendLine("In a real chat session, the optimized prompt would be shown with 'Run Optimized' and 'Edit in File' buttons.");
             vscode.window.showInformationMessage(
-              "✓ Test completed successfully!",
+                "✓ Optimization successful! (Preview Panel deprecated, see Output)",
             );
-          } else {
-            vscode.window.showInformationMessage("Test cancelled by user");
-          }
         } else {
           vscode.window.showInformationMessage(
-            "✓ Test completed (preview disabled)",
+            "✓ Test completed",
           );
         }
       } catch (error) {
