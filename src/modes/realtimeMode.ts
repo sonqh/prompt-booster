@@ -1,0 +1,273 @@
+/**
+ * Real-time mode implementation - Mode 2
+ * Intercepts chat prompts and shows preview
+ */
+
+import * as vscode from "vscode";
+import { PromptOptimizer } from "../promptBooster";
+import { LanguageModelSelector } from "../models/languageModels";
+import { ModeManager } from "../config/settings";
+import { PreviewPanel } from "../ui/previewPanel";
+
+export class RealtimeMode {
+  private readonly timeoutMs = 20000; // 20 second timeout
+
+  constructor(
+    private modeManager: ModeManager,
+    private optimizer: PromptOptimizer,
+    private modelSelector: LanguageModelSelector,
+    private previewPanel: PreviewPanel,
+    private outputChannel: vscode.OutputChannel,
+  ) {}
+
+  /**
+   * Handle chat request - called by VS Code chat participant
+   */
+  async handleChatRequest(
+    request: vscode.ChatRequest,
+    _context: vscode.ChatContext,
+    stream: vscode.ChatResponseStream,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    try {
+      // Log request details
+      this.outputChannel.appendLine("=== Realtime Chat Request ===");
+      this.outputChannel.appendLine(`Prompt: ${request.prompt}`);
+      this.outputChannel.appendLine(`Command: ${request.command || "(none)"}`);
+
+      // Check if mode is set to realtime
+      if (this.modeManager.getMode() !== "realtime") {
+        this.outputChannel.appendLine("Not in realtime mode - passing through");
+        stream.markdown(
+          `⚠️ PromptBooster is in **${this.modeManager.getMode()}** mode. Switch to **realtime** mode to enable chat optimization.`,
+        );
+        return;
+      }
+
+      // Check if auto-optimize is enabled
+      if (!this.modeManager.isAutoOptimizeEnabled()) {
+        this.outputChannel.appendLine(
+          "Auto-optimize disabled - passing through",
+        );
+        stream.markdown(
+          "⚠️ Auto-optimization is disabled. Enable it to optimize chat prompts.",
+        );
+        return;
+      }
+
+      // Check permissions
+      const hasPermission = await this.modeManager.checkPermission();
+      if (!hasPermission) {
+        this.outputChannel.appendLine("Permission denied");
+        stream.markdown(
+          "⚠️ Permission required to optimize prompts. Run **PromptBooster: Configure Permissions** to grant access.",
+        );
+        return;
+      }
+
+      const originalPrompt = request.prompt;
+
+      // Get the language model for optimization
+      const model = await this.modelSelector.getModelAutomatically();
+      if (!model) {
+        this.outputChannel.appendLine("No language model available");
+        stream.markdown(
+          "⚠️ No language model available. Please ensure GitHub Copilot is active.",
+        );
+        return;
+      }
+
+      this.outputChannel.appendLine(`Using model: ${model.name} (${model.id})`);
+
+      // Build enhanced prompt with context from references
+      const promptWithContext = this.buildPromptWithContext(
+        originalPrompt,
+        request,
+      );
+
+      // Log reference count
+      if (request.references && request.references.length > 0) {
+        this.outputChannel.appendLine(
+          `Including ${request.references.length} reference(s)`,
+        );
+      }
+
+      // Optimize prompt with timeout
+      let optimizedPrompt: string | undefined;
+
+      try {
+        stream.progress("Optimizing your prompt...");
+
+        optimizedPrompt = await Promise.race([
+          this.optimizer.optimize(promptWithContext, model, token),
+          this.createTimeout(this.timeoutMs),
+        ]);
+      } catch (error) {
+        // If optimization fails or times out, use prompt with context
+        this.outputChannel.appendLine(
+          `Optimization failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+
+        if (token.isCancellationRequested) {
+          stream.markdown("⚠️ Optimization cancelled.");
+          return;
+        }
+
+        stream.markdown(
+          "⚠️ Optimization timed out. Using prompt with references included...\n\n",
+        );
+
+        this.outputChannel.appendLine(
+          "Falling back to prompt with context (includes references)",
+        );
+        optimizedPrompt = promptWithContext;
+      }
+
+      // If timeout or error occurred, optimizedPrompt may be original
+      if (!optimizedPrompt) {
+        optimizedPrompt = promptWithContext;
+        this.outputChannel.appendLine(
+          "Using original prompt (no optimization)",
+        );
+      }
+
+      // Show preview if enabled
+      let finalPrompt = optimizedPrompt;
+
+      if (this.modeManager.isShowPreviewEnabled()) {
+        try {
+          const previewResult = await this.previewPanel.showInlinePreview(
+            originalPrompt,
+            optimizedPrompt,
+          );
+
+          if (!previewResult) {
+            // User cancelled
+            this.outputChannel.appendLine("User cancelled preview");
+            stream.markdown("✓ Request cancelled.");
+            return;
+          }
+
+          finalPrompt = previewResult.prompt;
+          this.outputChannel.appendLine(`User action: ${previewResult.action}`);
+        } catch (error) {
+          // Preview failed - use optimized prompt
+          this.outputChannel.appendLine(
+            `Preview failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          finalPrompt = optimizedPrompt;
+        }
+      }
+
+      // Log final prompt
+      this.outputChannel.appendLine("=== Final Prompt ===");
+      this.outputChannel.appendLine(finalPrompt);
+
+      // Send optimized response directly
+      await this.sendOptimizedResponse(finalPrompt, stream, model, token);
+    } catch (error) {
+      this.outputChannel.appendLine(`Error: ${error}`);
+      stream.markdown(
+        `❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Build enhanced prompt with context from references
+   */
+  private buildPromptWithContext(
+    prompt: string,
+    request: vscode.ChatRequest,
+  ): string {
+    let enhancedPrompt = prompt;
+
+    // Add reference context if available (#selection, #file, etc.)
+    if (request.references && request.references.length > 0) {
+      const referenceContext = request.references
+        .map((ref) => {
+          // Handle different reference types
+          if (ref.value instanceof vscode.Uri) {
+            // File reference (#file)
+            return `File: ${ref.value.fsPath}`;
+          } else if (ref.value instanceof vscode.Location) {
+            // Location/selection reference (#selection, #editor)
+            return `Location: ${ref.value.uri.fsPath}:${ref.value.range.start.line}`;
+          } else if (typeof ref.value === "string") {
+            // Text reference
+            return `Context: ${ref.value}`;
+          } else if (
+            ref.value &&
+            typeof ref.value === "object" &&
+            "range" in ref.value &&
+            "uri" in ref.value
+          ) {
+            // vscode.Range with URI
+            try {
+              const document = vscode.workspace.textDocuments.find(
+                (doc) =>
+                  doc.uri.toString() === (ref.value as any).uri.toString(),
+              );
+              if (document) {
+                const range = (ref.value as any).range as vscode.Range;
+                const text = document.getText(range);
+                return `Selection from ${document.fileName}:\n\`\`\`\n${text}\n\`\`\``;
+              }
+            } catch (e) {
+              // Fallback
+            }
+          }
+          return "";
+        })
+        .filter((s) => s)
+        .join("\n\n");
+
+      if (referenceContext) {
+        enhancedPrompt = `${referenceContext}\n\nUser Request:\n${prompt}`;
+      }
+    }
+
+    return enhancedPrompt;
+  }
+
+  /**
+   * Send optimized response directly using the AI model
+   */
+  private async sendOptimizedResponse(
+    prompt: string,
+    stream: vscode.ChatResponseStream,
+    model: vscode.LanguageModelChat,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    try {
+      this.outputChannel.appendLine("Sending optimized prompt to AI...");
+
+      const messages = [vscode.LanguageModelChatMessage.User(prompt)];
+
+      const request = await model.sendRequest(messages, {}, token);
+
+      // Stream response directly - no "forwarding" message
+      for await (const chunk of request.text) {
+        stream.markdown(chunk);
+      }
+
+      this.outputChannel.appendLine("Response streaming complete");
+    } catch (error) {
+      this.outputChannel.appendLine(
+        `Response error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Create a timeout promise
+   */
+  private createTimeout(ms: number): Promise<string> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Optimization timed out after ${ms}ms`));
+      }, ms);
+    });
+  }
+}

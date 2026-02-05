@@ -1,0 +1,163 @@
+{
+  "name": "promptbooster",
+  "displayName": "PromptBooster",
+  "description": "Enhance and optimize your prompts using AI before sending to GitHub Copilot",
+  "version": "0.1.0",
+  "publisher": "promptbooster",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "promptBooster.boost",
+        "title": "PromptBooster: Boost This Prompt",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "promptBooster.switchMode",
+        "title": "PromptBooster: Switch Operation Mode"
+      },
+      {
+        "command": "promptBooster.toggleAutoOptimization",
+        "title": "PromptBooster: Toggle Auto-Optimization"
+      },
+      {
+        "command": "promptBooster.switchModel",
+        "title": "PromptBooster: Switch AI Model"
+      },
+      {
+        "command": "promptBooster.configurePermissions",
+        "title": "PromptBooster: Configure Permissions"
+      },
+      {
+        "command": "promptBooster.processPromptFile",
+        "title": "PromptBooster: Process Prompt File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "promptBooster.testFileGeneration",
+        "title": "PromptBooster: Test File Generation"
+      },
+      {
+        "command": "promptBooster.testRealtimeMode",
+        "title": "PromptBooster: Test Realtime Mode"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "promptBooster.interceptor",
+        "name": "PromptBooster",
+        "description": "Intercepts and optimizes your chat prompts before sending to Copilot",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "optimize",
+            "description": "Manually trigger prompt optimization"
+          }
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "PromptBooster",
+      "properties": {
+        "promptBooster.operationMode": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "realtime",
+            "file"
+          ],
+          "default": "manual",
+          "description": "Operation mode: manual (file-based), realtime (chat interception), or file (generate files)"
+        },
+        "promptBooster.autoOptimize": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically optimize prompts when enabled (for realtime and file modes)"
+        },
+        "promptBooster.showPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show preview UI before sending optimized prompts"
+        },
+        "promptBooster.fileOutputDirectory": {
+          "type": "string",
+          "default": ".github/prompts",
+          "description": "Directory where generated prompt files will be saved"
+        },
+        "promptBooster.fileNamingPattern": {
+          "type": "string",
+          "enum": [
+            "timestamp",
+            "prompt",
+            "custom"
+          ],
+          "default": "prompt",
+          "description": "Pattern for naming generated prompt files"
+        },
+        "promptBooster.modelPreference": {
+          "type": "string",
+          "enum": [
+            "gpt-4.1",
+            "gpt-4o",
+            "claude-haiku-4.5"
+          ],
+          "default": "gpt-4.1",
+          "description": "Preferred AI model for prompt optimization"
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "promptBooster.boost",
+          "when": "resourceFilename =~ /\\.prompt\\.md$/",
+          "group": "PromptBooster@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "promptBooster.boost",
+          "when": "resourceFilename =~ /\\.prompt\\.md$/",
+          "group": "navigation"
+        },
+        {
+          "command": "promptBooster.processPromptFile",
+          "when": "resourceFilename =~ /\\.prompt\\.md$/ && config.promptBooster.operationMode == 'file'",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "@vscode/chat-extension-utils": "^0.0.0-alpha.1",
+    "@vscode/prompt-tsx": "^0.3.0-alpha.12"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.99.0",
+    "@types/node": "^20.x",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.50.0",
+    "typescript": "^5.3.0",
+    "@vscode/test-electron": "^2.3.0",
+    "esbuild": "^0.19.0"
+  }
+}
