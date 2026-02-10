@@ -8,22 +8,25 @@ export const TYPES = {
   FileSystem: Symbol.for("IFileSystem"),
   ProgressService: Symbol.for("IProgressService"),
   StateRepository: Symbol.for("IStateRepository"),
+  LanguageModelProvider: Symbol.for("ILanguageModelProvider"),
+  ExtensionContext: Symbol.for("ExtensionContext"),
 
   // Core Services
   PromptOptimizationService: Symbol.for("IPromptOptimizationService"),
-  LanguageModelProvider: Symbol.for("ILanguageModelProvider"),
 
   // Strategies
   ManualModeStrategy: Symbol.for("ManualModeStrategy"),
   RealtimeModeStrategy: Symbol.for("RealtimeModeStrategy"),
   FileModeStrategy: Symbol.for("FileModeStrategy"),
 
-  // Presentation
+  // Presentation - Commands
   CommandRegistry: Symbol.for("CommandRegistry"),
+  BoostCommand: Symbol.for("BoostCommand"),
+  ProcessFileCommand: Symbol.for("ProcessFileCommand"),
+  SwitchModeCommand: Symbol.for("SwitchModeCommand"),
+  ChatCommandsHandler: Symbol.for("ChatCommandsHandler"),
+
+  // Presentation - UI
   ChatParticipantHandler: Symbol.for("ChatParticipantHandler"),
   StatusBarController: Symbol.for("StatusBarController"),
-  ProcessButtonController: Symbol.for("ProcessButtonController"),
-
-  // VS Code Context
-  ExtensionContext: Symbol.for("vscode.ExtensionContext"),
 };

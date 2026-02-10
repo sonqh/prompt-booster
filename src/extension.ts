@@ -1,186 +1,98 @@
 /**
- * PromptBooster VS Code Extension
- * Main entry point
+ * PromptBooster VS Code Extension - Refactored Entry Point
+ * Uses dependency injection and clean architecture
  */
-
 import * as vscode from "vscode";
-import * as path from "path";
-import { ModeManager } from "./config/settings";
-import { ModeStatusBar } from "./ui/modeSelector";
-import { LanguageModelSelector } from "./models/languageModels";
-import { PromptOptimizer } from "./promptBooster";
-import { ManualMode } from "./modes/manualMode";
-import { FileMode } from "./modes/fileMode";
-import { RealtimeMode } from "./modes/realtimeMode";
-import { ChatCommands } from "./commands/chatCommands";
-import { ProcessButton, PromptFileCodeLensProvider } from "./ui/processButton";
-
-let outputChannel: vscode.OutputChannel;
-let modeManager: ModeManager;
-let statusBar: ModeStatusBar;
-let processButton: ProcessButton;
-let chatCommands: ChatCommands;
+import { Container } from "./di/Container";
+import { ServiceRegistry } from "./di/ServiceRegistry";
+import { TYPES } from "./di/types";
+import { CommandRegistry } from "./presentation/commands/CommandRegistry";
+import { ILogger } from "./shared/interfaces/ILogger";
+import { IConfigurationManager } from "./shared/interfaces/IConfigurationManager";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("PromptBooster extension is now active");
 
-  // Initialize output channel
-  outputChannel = vscode.window.createOutputChannel("PromptBooster");
-  outputChannel.appendLine("PromptBooster extension activated");
-  context.subscriptions.push(outputChannel);
+  // Step 1: Create and configure DI container
+  const container = new Container();
+  ServiceRegistry.registerServices(container, context);
 
-  // Initialize core components
-  modeManager = new ModeManager(context);
-  const modelSelector = new LanguageModelSelector(outputChannel);
-  const optimizer = new PromptOptimizer(outputChannel);
+  // Step 2: Resolve logger for initialization logging
+  const logger = container.resolve<ILogger>(TYPES.Logger);
+  const configManager = container.resolve<IConfigurationManager>(
+    TYPES.ConfigurationManager,
+  );
 
-  // Initialize UI components
-  statusBar = new ModeStatusBar(modeManager);
+  logger.log("PromptBooster extension activated");
+  logger.log(`Current mode: ${configManager.getOperationMode()}`);
+  logger.log(`Auto-optimize: ${configManager.isAutoOptimizeEnabled()}`);
+
+  // Step 3: Register all commands via CommandRegistry
+  const commandRegistry = container.resolve<CommandRegistry>(
+    TYPES.CommandRegistry,
+  );
+  commandRegistry.registerAll(context);
+
+  // Step 4: Register UI components (status bar, code lens, etc.)
+  registerUIComponents(context, container);
+
+  // Step 5: Register chat participant for realtime mode
+  registerChatParticipant(context, container);
+
+  // Step 6: Show welcome message on first activation
+  showWelcomeMessage(context);
+
+  logger.log("PromptBooster extension fully initialized");
+}
+
+export function deactivate() {
+  console.log("PromptBooster extension deactivated");
+}
+
+/**
+ * Register UI components (status bar, code lens providers, etc.)
+ */
+function registerUIComponents(
+  context: vscode.ExtensionContext,
+  container: Container,
+): void {
+  const logger = container.resolve<ILogger>(TYPES.Logger);
+
+  // Register Status Bar
+  const statusBar = container.resolve<any>(TYPES.StatusBarController);
   context.subscriptions.push(statusBar);
-
-  processButton = new ProcessButton();
-  context.subscriptions.push(processButton);
-
-  // Initialize mode handlers
-  const manualMode = new ManualMode(optimizer, modelSelector, outputChannel);
-  const fileMode = new FileMode(outputChannel);
-  chatCommands = new ChatCommands(fileMode, outputChannel);
-
-  // Register Chat Helper Commands
-  context.subscriptions.push(
-    vscode.commands.registerCommand("promptBooster.runPrompt", async (prompt: string) => {
-        await chatCommands.runPrompt(prompt);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("promptBooster.createPromptFile", async (original: string, optimized: string) => {
-        await chatCommands.createPromptFile(original, optimized);
-    })
-  );
-
-  // Register commands
-  const boostCommand = vscode.commands.registerCommand(
-    "promptBooster.boost",
-    (uri?: vscode.Uri) => manualMode.boost(uri),
-  );
-  context.subscriptions.push(boostCommand);
-
-  const switchModeCommand = vscode.commands.registerCommand(
-    "promptBooster.switchMode",
-    () => statusBar.showModeSwitcher(),
-  );
-  context.subscriptions.push(switchModeCommand);
-
-  const toggleAutoOptimizeCommand = vscode.commands.registerCommand(
-    "promptBooster.toggleAutoOptimization",
-    async () => {
-      await modeManager.toggleAutoOptimize();
-      const enabled = modeManager.isAutoOptimizeEnabled();
-      vscode.window.showInformationMessage(
-        `Auto-optimization ${enabled ? "enabled" : "disabled"}`,
-      );
-    },
-  );
-  context.subscriptions.push(toggleAutoOptimizeCommand);
-
-  const switchModelCommand = vscode.commands.registerCommand(
-    "promptBooster.switchModel",
-    async () => {
-      const model = await modelSelector.selectModel(true); // Force show picker
-      if (model) {
-        vscode.window.showInformationMessage(
-          `Switched to model: ${model.name}`,
-        );
-      }
-    },
-  );
-  context.subscriptions.push(switchModelCommand);
-
-  const configurePermissionsCommand = vscode.commands.registerCommand(
-    "promptBooster.configurePermissions",
-    () => modeManager.configurePermissions(),
-  );
-  context.subscriptions.push(configurePermissionsCommand);
-
-  const processPromptFileCommand = vscode.commands.registerCommand(
-    "promptBooster.processPromptFile",
-    async (document?: vscode.TextDocument) => {
-      const doc = document || vscode.window.activeTextEditor?.document;
-      if (doc) {
-        await fileMode.processPromptFile(doc);
-      } else {
-        vscode.window.showWarningMessage("No prompt file open");
-      }
-    },
-  );
-  context.subscriptions.push(processPromptFileCommand);
-
-  // Add test command for file generation
-  const testFileGenerationCommand = vscode.commands.registerCommand(
-    "promptBooster.testFileGeneration",
-    async () => {
-      // Check if workspace folder is open
-      if (!vscode.workspace.workspaceFolders?.length) {
-        vscode.window.showErrorMessage(
-          "Please open a workspace folder to test file generation",
-        );
-        return;
-      }
-
-      const testOriginal = "Create a REST API for managing users";
-      const model = await modelSelector.selectModel();
-      if (!model) {
-        vscode.window.showErrorMessage("No language model available");
-        return;
-      }
-
-      try {
-        vscode.window.showInformationMessage(`Using model: ${model.name}`);
-        const optimized = await optimizer.optimizeWithProgress(
-          testOriginal,
-          model,
-          "Generating test file...",
-        );
-
-        if (optimized) {
-          const filePath = await fileMode.generatePromptFile(
-            testOriginal,
-            optimized,
-          );
-          if (filePath) {
-            const doc = await vscode.workspace.openTextDocument(filePath);
-            await vscode.window.showTextDocument(doc);
-            vscode.window.showInformationMessage(
-              `Test file created: ${path.basename(filePath)}`,
-            );
-          }
-        }
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          `Failed to generate test file: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        outputChannel.appendLine(`Test file generation error: ${error}`);
-      }
-    },
-  );
-  context.subscriptions.push(testFileGenerationCommand);
+  logger.log("Status bar registered");
 
   // Register CodeLens provider for .prompt.md files
+  const {
+    PromptFileCodeLensProvider,
+  } = require("./presentation/ui/ProcessButton");
   const codeLensProvider = new PromptFileCodeLensProvider();
   const codeLensDisposable = vscode.languages.registerCodeLensProvider(
     { pattern: "**/*.prompt.md" },
     codeLensProvider,
   );
   context.subscriptions.push(codeLensDisposable);
+  logger.log("CodeLens provider registered");
+}
 
-  // Log current mode
-  outputChannel.appendLine(`Current mode: ${modeManager.getMode()}`);
-  outputChannel.appendLine(
-    `Auto-optimize: ${modeManager.isAutoOptimizeEnabled()}`,
+/**
+ * Register chat participant for realtime mode
+ */
+function registerChatParticipant(
+  context: vscode.ExtensionContext,
+  container: Container,
+): void {
+  const chatParticipantHandler = container.resolve<any>(
+    TYPES.ChatParticipantHandler,
   );
+  chatParticipantHandler.register(context);
+}
 
-  // Show welcome message on first activation
+/**
+ * Show welcome message on first activation
+ */
+function showWelcomeMessage(context: vscode.ExtensionContext): void {
   const hasShownWelcome = context.globalState.get<boolean>("hasShownWelcome");
   if (!hasShownWelcome) {
     vscode.window
@@ -191,129 +103,5 @@ export function activate(context: vscode.ExtensionContext) {
       .then(() => {
         context.globalState.update("hasShownWelcome", true);
       });
-  }
-
-  // Register chat participant for real-time mode
-  try {
-    const realtimeMode = new RealtimeMode(
-      modeManager,
-      optimizer,
-      modelSelector,
-      outputChannel,
-    );
-
-    const participant = vscode.chat.createChatParticipant(
-      "promptBooster.interceptor",
-      async (request, context, stream, token) => {
-        await realtimeMode.handleChatRequest(request, context, stream, token);
-      },
-    );
-
-    // Configure participant
-    participant.iconPath = vscode.Uri.file(
-      path.join(context.extensionPath, "resources", "icon.png"),
-    );
-    // participant.isSticky = true; // Not available in current API version
-
-    context.subscriptions.push(participant);
-    outputChannel.appendLine("Chat participant registered successfully");
-  } catch (error) {
-    outputChannel.appendLine(
-      `Failed to register chat participant: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    // Don't fail activation if chat participant registration fails
-    // This allows the extension to work in older VS Code versions
-  }
-
-  // Add test command for real-time mode
-  const testRealtimeModeCommand = vscode.commands.registerCommand(
-    "promptBooster.testRealtimeMode",
-    async () => {
-      try {
-        const testPrompt = "Write a function to calculate factorial";
-
-        vscode.window.showInformationMessage(
-          `Testing realtime mode with prompt: "${testPrompt}"`,
-        );
-
-        outputChannel.appendLine("=== Test Realtime Mode ===");
-        outputChannel.appendLine(`Test prompt: ${testPrompt}`);
-
-        // Check mode and settings
-        const mode = modeManager.getMode();
-        const autoOptimize = modeManager.isAutoOptimizeEnabled();
-        const showPreview = modeManager.isShowPreviewEnabled();
-
-        outputChannel.appendLine(`Current mode: ${mode}`);
-        outputChannel.appendLine(`Auto-optimize: ${autoOptimize}`);
-        outputChannel.appendLine(`Current mode: ${mode}`);
-        outputChannel.appendLine(`Auto-optimize: ${autoOptimize}`);
-        // outputChannel.appendLine(`Show preview: ${showPreview}`); // Deprecated setting
-
-        if (mode !== "realtime") {
-          vscode.window.showWarningMessage(
-            `PromptBooster is in ${mode} mode. Switch to realtime mode to test.`,
-          );
-          return;
-        }
-
-        if (!autoOptimize) {
-          vscode.window.showWarningMessage(
-            "Auto-optimization is disabled. Enable it to test realtime mode.",
-          );
-          return;
-        }
-
-        // Select model
-        const model = await modelSelector.selectModel();
-        if (!model) {
-          vscode.window.showErrorMessage("No language model available");
-          return;
-        }
-
-        // Optimize
-        const optimized = await optimizer.optimizeWithProgress(
-          testPrompt,
-          model,
-          "Testing optimization...",
-        );
-
-        if (!optimized) {
-          vscode.window.showInformationMessage("Test cancelled");
-          return;
-        }
-
-        outputChannel.appendLine("=== Optimized Prompt ===");
-        outputChannel.appendLine(optimized);
-
-        // Show preview
-        if (showPreview) {
-            outputChannel.appendLine("Preview Panel is deprecated in favor of Native Chat UI.");
-            outputChannel.appendLine("In a real chat session, the optimized prompt would be shown with 'Run Optimized' and 'Edit in File' buttons.");
-            vscode.window.showInformationMessage(
-                "✓ Optimization successful! (Preview Panel deprecated, see Output)",
-            );
-        } else {
-          vscode.window.showInformationMessage(
-            "✓ Test completed",
-          );
-        }
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          `Test failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        outputChannel.appendLine(`Test error: ${error}`);
-      }
-    },
-  );
-  context.subscriptions.push(testRealtimeModeCommand);
-}
-
-export function deactivate() {
-  if (outputChannel) {
-    outputChannel.appendLine("PromptBooster extension deactivated");
-  }
-  if (modeManager) {
-    modeManager.dispose();
   }
 }

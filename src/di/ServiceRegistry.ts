@@ -21,6 +21,17 @@ import { ManualModeStrategy } from "../core/strategies/ManualModeStrategy";
 import { RealtimeModeStrategy } from "../core/strategies/RealtimeModeStrategy";
 import { FileModeStrategy } from "../core/strategies/FileModeStrategy";
 
+// Presentation - Commands
+import { CommandRegistry } from "../presentation/commands/CommandRegistry";
+import { BoostCommand } from "../presentation/commands/BoostCommand";
+import { ProcessFileCommand } from "../presentation/commands/ProcessFileCommand";
+import { SwitchModeCommand } from "../presentation/commands/SwitchModeCommand";
+import { ChatCommandsHandler } from "../presentation/commands/ChatCommands";
+
+// Presentation - UI & Participants
+import { ChatParticipantHandler } from "../presentation/participants/ChatParticipantHandler";
+import { StatusBarController } from "../presentation/ui/StatusBarController";
+
 // Interfaces
 import { ILogger } from "../shared/interfaces/ILogger";
 import { IConfigurationManager } from "../shared/interfaces/IConfigurationManager";
@@ -28,6 +39,7 @@ import { IFileSystem } from "../shared/interfaces/IFileSystem";
 import { IProgressService } from "../shared/interfaces/IProgressReporter";
 import { IPromptOptimizationService } from "../core/services/IPromptOptimizationService";
 import { ILanguageModelProvider } from "../core/models/ILanguageModelProvider";
+import { IModeStrategy } from "../core/strategies/IModeStrategy";
 
 export class ServiceRegistry {
   /**
@@ -48,6 +60,9 @@ export class ServiceRegistry {
 
     // Strategies
     this.registerStrategies(container);
+
+    // Presentation Layer
+    this.registerPresentationLayer(container);
   }
 
   /**
@@ -130,6 +145,58 @@ export class ServiceRegistry {
         c.resolve<IProgressService>(TYPES.ProgressService),
         c.resolve<ILogger>(TYPES.Logger),
       );
+    });
+  }
+
+  /**
+   * Register presentation layer (commands, UI)
+   */
+  private static registerPresentationLayer(container: Container): void {
+    // Command Registry
+    container.registerSingleton(TYPES.CommandRegistry, (c) => {
+      return new CommandRegistry(c);
+    });
+
+    // Commands
+    container.registerSingleton(TYPES.BoostCommand, (c) => {
+      return new BoostCommand(
+        c.resolve<IModeStrategy>(TYPES.ManualModeStrategy),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.ProcessFileCommand, (c) => {
+      return new ProcessFileCommand(
+        c.resolve<FileModeStrategy>(TYPES.FileModeStrategy),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.SwitchModeCommand, (c) => {
+      return new SwitchModeCommand(
+        c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.ChatCommandsHandler, (c) => {
+      return new ChatCommandsHandler(
+        c.resolve<FileModeStrategy>(TYPES.FileModeStrategy),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    // UI Components
+    container.registerSingleton(TYPES.StatusBarController, (c) => {
+      return new StatusBarController(
+        c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    // Chat Participant
+    container.registerSingleton(TYPES.ChatParticipantHandler, (c) => {
+      return new ChatParticipantHandler(c);
     });
   }
 }
