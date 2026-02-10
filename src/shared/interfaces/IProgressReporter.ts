@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 /**
  * Progress reporter interface - abstraction for progress indicators
  */
@@ -32,22 +34,7 @@ export interface IProgressService {
     options: ProgressOptions,
     task: (
       reporter: IProgressReporter,
-      token: ICancellationToken,
+      token: vscode.CancellationToken,
     ) => Promise<T>,
   ): Promise<T>;
-}
-
-/**
- * Cancellation token interface
- */
-export interface ICancellationToken {
-  /**
-   * Whether cancellation has been requested
-   */
-  isCancellationRequested: boolean;
-
-  /**
-   * Subscribe to cancellation event
-   */
-  onCancellationRequested(listener: () => void): void;
 }

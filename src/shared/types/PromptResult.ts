@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 /**
  * Result of prompt optimization
  */
@@ -20,12 +22,12 @@ export interface OptimizationOptions {
   /**
    * The AI model to use
    */
-  model: any; // Will be typed properly when we implement ILanguageModelProvider
+  model: vscode.LanguageModelChat;
 
   /**
-   * Cancellation token
+   * Cancellation token for the optimization operation
    */
-  cancellationToken?: any;
+  cancellationToken?: vscode.CancellationToken;
 }
 
 /**

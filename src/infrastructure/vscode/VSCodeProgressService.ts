@@ -5,7 +5,6 @@ import * as vscode from "vscode";
 import {
   IProgressService,
   IProgressReporter,
-  ICancellationToken,
   ProgressOptions,
 } from "../../shared/interfaces/IProgressReporter";
 
@@ -23,24 +22,12 @@ class VSCodeProgressReporter implements IProgressReporter {
   }
 }
 
-class VSCodeCancellationToken implements ICancellationToken {
-  constructor(private token: vscode.CancellationToken) {}
-
-  get isCancellationRequested(): boolean {
-    return this.token.isCancellationRequested;
-  }
-
-  onCancellationRequested(listener: () => void): void {
-    this.token.onCancellationRequested(listener);
-  }
-}
-
 export class VSCodeProgressService implements IProgressService {
   async withProgress<T>(
     options: ProgressOptions,
     task: (
       reporter: IProgressReporter,
-      token: ICancellationToken,
+      token: vscode.CancellationToken,
     ) => Promise<T>,
   ): Promise<T> {
     return vscode.window.withProgress(
@@ -51,8 +38,7 @@ export class VSCodeProgressService implements IProgressService {
       },
       async (progress, token) => {
         const reporter = new VSCodeProgressReporter(progress);
-        const cancellationToken = new VSCodeCancellationToken(token);
-        return await task(reporter, cancellationToken);
+        return await task(reporter, token);
       },
     );
   }

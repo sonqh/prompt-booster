@@ -1,7 +1,3 @@
-/**
- * Simple Dependency Injection Container
- */
-
 type Factory<T> = (container: Container) => T;
 
 interface ServiceRegistration<T> {
@@ -62,15 +58,12 @@ export class Container {
       throw new Error(`Service not registered: ${serviceId.toString()}`);
     }
 
-    // Return existing singleton instance if available
     if (registration.singleton && registration.instance) {
       return registration.instance;
     }
 
-    // Create new instance
     const instance = registration.factory(this);
 
-    // Store singleton instance
     if (registration.singleton) {
       registration.instance = instance;
     }
@@ -86,7 +79,7 @@ export class Container {
   }
 
   /**
-   * Clear all registrations (mainly for testing)
+   * Clear all registrations
    */
   clear(): void {
     this.services.clear();

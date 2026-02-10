@@ -19,7 +19,6 @@ export class LanguageModelProvider implements ILanguageModelProvider {
     forcePrompt = false,
   ): Promise<vscode.LanguageModelChat | undefined> {
     try {
-      // Get all available models
       const models = await vscode.lm.selectChatModels({
         vendor: "copilot",
       });
@@ -110,11 +109,14 @@ export class LanguageModelProvider implements ILanguageModelProvider {
         return preferredModel;
       }
 
-      // 3. Fallback to first available model
-      this.logger.log(`Using first available model: ${models[0].id}`);
-      this.warnIfSlowModel(models[0]);
-      this.lastUsedModel = models[0];
-      return models[0];
+      // 3. Fallback to first available model (prioritizing non-slow ones)
+      const fastModels = models.filter((m) => !this.isSlowModel(m));
+      const modelToUse = fastModels.length > 0 ? fastModels[0] : models[0];
+
+      this.logger.log(`Using fallback model: ${modelToUse.id}`);
+      this.warnIfSlowModel(modelToUse);
+      this.lastUsedModel = modelToUse;
+      return modelToUse;
     } catch (error) {
       this.logger.error("Error getting model", error as Error);
       return undefined;
@@ -203,14 +205,26 @@ export class LanguageModelProvider implements ILanguageModelProvider {
   }
 
   private warnIfSlowModel(model: vscode.LanguageModelChat): void {
-    const modelId = model.id.toLowerCase();
-    if (modelId.includes("gpt-5") && modelId.includes("mini")) {
-      this.logger.warn(
-        "GPT-5 mini is selected. This model may have slow response times.",
-      );
+    if (this.isSlowModel(model)) {
+      this.logger.warn("Selected model may have slow response times.");
       this.logger.warn(
         "Optimization may take longer or timeout. Consider using a faster model.",
       );
     }
+  }
+
+  private isSlowModel(model: vscode.LanguageModelChat): boolean {
+    const modelId = model.id.toLowerCase();
+
+    // Slow models include:
+    // - GPT-5
+    // - Opus models
+    // - any model with "thinking" or "reasoning" in the name
+    return (
+      modelId.includes("gpt-5") ||
+      modelId.includes("opus") ||
+      modelId.includes("thinking") ||
+      modelId.includes("reasoning")
+    );
   }
 }

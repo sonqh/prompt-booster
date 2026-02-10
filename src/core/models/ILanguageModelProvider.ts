@@ -1,6 +1,3 @@
-/**
- * Language Model Provider Interface
- */
 import * as vscode from "vscode";
 
 export interface ILanguageModelProvider {

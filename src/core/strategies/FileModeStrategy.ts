@@ -36,7 +36,6 @@ export class FileModeStrategy implements IModeStrategy {
       return;
     }
 
-    // Select model
     const model = await this.modelProvider.getModel();
     if (!model) {
       this.logger.log("Model selection cancelled");
@@ -62,7 +61,6 @@ export class FileModeStrategy implements IModeStrategy {
       return;
     }
 
-    // Generate file
     const filePath = await this.generatePromptFile(textToOptimize, optimized);
 
     if (filePath) {
@@ -91,13 +89,10 @@ export class FileModeStrategy implements IModeStrategy {
         throw new Error("No workspace folder open");
       }
 
-      // Ensure output directory exists
       const fullOutputPath = this.fileSystem.joinPath(workspacePath, outputDir);
       if (!(await this.fileSystem.fileExists(fullOutputPath))) {
         await this.fileSystem.createDirectory(fullOutputPath);
       }
-
-      // Generate filename
       const filename = await this.generateFilename(original, namingPattern);
       if (!filename) {
         return undefined; // User cancelled
@@ -105,10 +100,8 @@ export class FileModeStrategy implements IModeStrategy {
 
       const filePath = this.fileSystem.joinPath(fullOutputPath, filename);
 
-      // Create file content
       const content = this.buildFileContent(original, optimized);
 
-      // Write file
       await this.fileSystem.writeFile(filePath, content);
 
       this.logger.log(`Generated prompt file at ${filePath}`);
@@ -137,7 +130,6 @@ export class FileModeStrategy implements IModeStrategy {
         return;
       }
 
-      // Execute in Chat
       const success = await vscode.commands.executeCommand(
         "workbench.action.chat.open",
         {
