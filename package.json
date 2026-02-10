@@ -2,7 +2,7 @@
   "name": "promptbooster",
   "displayName": "PromptBooster",
   "description": "Enhance and optimize your prompts using AI before sending to GitHub Copilot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "promptbooster",
   "engines": {
     "vscode": "^1.99.0"

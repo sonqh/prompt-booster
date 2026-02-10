@@ -2,68 +2,52 @@
 
 All notable changes to the "PromptBooster" extension will be documented in this file.
 
-## [0.1.0] - 2026-02-05
+## [0.2.0] - 2026-02-10
 
 ### Added
 
-#### Core Infrastructure
+#### Architectural Migration (Clean Architecture)
 
-- Initial project setup with TypeScript and VS Code extension framework
-- Configuration management system with `ModeManager` class
-- Three operational modes: Manual, Real-time (stub), and File (stub)
-- Language model selection with fallback logic
-- Status bar UI showing current mode with quick mode switcher
+- **Dependency Injection**: Implemented a central DI container for managing services and commands.
+- **Layered Structure**: Reorganized codebase into Presentation, Core, and Infrastructure layers.
+- **Service Abstractions**: Decoupled business logic from VS Code API via interfaces (`ILogger`, `IFileSystem`, `IConfigurationManager`).
+- **Strategy Pattern**: Implemented Mode strategies (Manual, Realtime, FileMode) for better extensibility.
+- **Command Registry**: Centralized command registration for a cleaner entry point.
 
-#### Mode 1: Manual Enhancement
+#### Mode 2: Real-time (Chat Interception)
 
-- Right-click context menu integration
-- Editor title menu integration
-- Support for selection or full document optimization
-- Progress indicator with cancellation support
-- Comprehensive error handling
-- Output channel logging for debugging
+- **Chat Interception**: Automatically intercept prompts starting with `@PromptBooster`.
+- **Smart Intent Detection**: Automatically detects user intent (Ask vs Edit) using AI.
+- **Dynamic Context-Aware Buttons**: Different actions available based on detected intent (`Apply Edits`, `Ask Copilot`, `Refine in File`).
+- **Structured Optimization**: Rewrites prompts into a formal structure (Task, Context, Requirements, Output).
 
-#### Settings
+#### Mode 3: File Generation (Refinement Workflow)
 
-- `promptBooster.operationMode` - Choose operation mode (manual/realtime/file)
-- `promptBooster.autoOptimize` - Toggle automatic optimization
-- `promptBooster.showPreview` - Show preview UI (for future modes)
-- `promptBooster.fileOutputDirectory` - Output directory for generated files
-- `promptBooster.fileNamingPattern` - File naming strategy
-- `promptBooster.modelPreference` - Preferred AI model selection
+- **Automated Generation**: Creates `.prompt.md` files in `.github/prompts/` from chat prompts.
+- **Naming Strategies**: Support for timestamp, prompt-based, and custom file naming.
+- **Processing Workflow**: Integrated CodeLens and status bar buttons to send refined prompts back to Copilot.
 
-#### Commands
+#### New Features & UI
 
-- `PromptBooster: Boost This Prompt` - Optimize prompt in current file
-- `PromptBooster: Switch Operation Mode` - Quick mode switcher
-- `PromptBooster: Toggle Auto-Optimization` - Enable/disable auto-optimization
-- `PromptBooster: Configure Permissions` - Manage interception permissions
-- `PromptBooster: Process Prompt File` - Process generated files (stub)
+- **Switch AI Model Command**: New command to switch between preferred AI models (GPT-4.1, GPT-4o, Claude Haiku).
+- **ESM Compliance**: Updated all imports to use `.js` extensions for Node16 module resolution compatibility.
 
-#### Developer Experience
+#### Testing
 
-- Full TypeScript strict mode compliance
-- VS Code debugging configuration
-- Build tasks and watch mode
-- Comprehensive code comments and documentation
+- **Unit Testing**: Added test suite for `PromptOptimizationService` using Mocha.
+- **Mocks**: Integrated mock objects for Logger and AI Model testing.
 
-### Coming Soon
+### Fixed
 
-#### Mode 2: Real-time Chat Interception
+- **Module Resolution**: Resolved "Cannot find module" errors by strictly following ESM path rules.
+- **Circular Dependencies**: Fixed potential circular dependencies through DI container usage.
 
-- Automatic prompt interception
-- Preview UI with before/after comparison
-- Edit capability before submission
-- Permission management system
+### Changed
 
-#### Mode 3: File Generation
+- **Entry Point Refactoring**: Reduced `extension.ts` size by 70%, moving logic to dedicated controllers and handlers.
+- **Configuration Management**: Centralized all settings access via the `ConfigurationManager` service.
 
-- Generate `.prompt.md` files from chat prompts
-- Full editor support for refinement
-- Process button and CodeLens integration
-- Version control friendly workflow
-
-## [Unreleased]
+## [0.1.0] - 2026-02-05
 
 ### Planned Features
 
