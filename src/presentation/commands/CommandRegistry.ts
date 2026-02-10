@@ -8,6 +8,7 @@ import { TYPES } from "../../di/types";
 import { BoostCommand } from "./BoostCommand";
 import { ProcessFileCommand } from "./ProcessFileCommand";
 import { SwitchModeCommand } from "./SwitchModeCommand";
+import { SwitchModelCommand } from "./SwitchModelCommand";
 import { ChatCommandsHandler } from "./ChatCommands";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import { ILogger } from "../../shared/interfaces/ILogger";
@@ -80,14 +81,10 @@ export class CommandRegistry {
     );
 
     // Switch Model Command
-    // NOTE: This will be implemented when we have model provider abstraction
-    context.subscriptions.push(
-      vscode.commands.registerCommand("promptBooster.switchModel", async () => {
-        vscode.window.showInformationMessage(
-          "Model switching via new architecture coming soon",
-        );
-      }),
+    const switchModelCommand = this.container.resolve<SwitchModelCommand>(
+      TYPES.SwitchModelCommand,
     );
+    switchModelCommand.register(context);
 
     // Configure Permissions - delegates to VS Code settings UI
     context.subscriptions.push(

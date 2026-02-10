@@ -24,6 +24,7 @@ export const TYPES = {
   BoostCommand: Symbol.for("BoostCommand"),
   ProcessFileCommand: Symbol.for("ProcessFileCommand"),
   SwitchModeCommand: Symbol.for("SwitchModeCommand"),
+  SwitchModelCommand: Symbol.for("SwitchModelCommand"),
   ChatCommandsHandler: Symbol.for("ChatCommandsHandler"),
 
   // Presentation - UI

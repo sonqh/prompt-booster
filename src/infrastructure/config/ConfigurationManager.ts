@@ -2,8 +2,8 @@
  * Configuration Manager - implements IConfigurationManager interface
  */
 import * as vscode from "vscode";
-import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
-import { OperationMode } from "../../shared/types/OperationMode";
+import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager.js";
+import { OperationMode } from "../../shared/types/OperationMode.js";
 
 export class ConfigurationManager implements IConfigurationManager {
   private readonly configSection = "promptBooster";
@@ -58,6 +58,10 @@ export class ConfigurationManager implements IConfigurationManager {
 
   getModelPreference(): string {
     return this.getConfig<string>("modelPreference", "gpt-4.1");
+  }
+
+  async setModelPreference(model: string): Promise<void> {
+    await this.setConfig("modelPreference", model);
   }
 
   async hasPermission(): Promise<boolean> {

@@ -26,6 +26,7 @@ import { CommandRegistry } from "../presentation/commands/CommandRegistry";
 import { BoostCommand } from "../presentation/commands/BoostCommand";
 import { ProcessFileCommand } from "../presentation/commands/ProcessFileCommand";
 import { SwitchModeCommand } from "../presentation/commands/SwitchModeCommand";
+import { SwitchModelCommand } from "../presentation/commands/SwitchModelCommand";
 import { ChatCommandsHandler } from "../presentation/commands/ChatCommands";
 
 // Presentation - UI & Participants
@@ -174,6 +175,13 @@ export class ServiceRegistry {
 
     container.registerSingleton(TYPES.SwitchModeCommand, (c) => {
       return new SwitchModeCommand(
+        c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.SwitchModelCommand, (c) => {
+      return new SwitchModelCommand(
         c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
         c.resolve<ILogger>(TYPES.Logger),
       );

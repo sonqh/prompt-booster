@@ -46,6 +46,11 @@ export interface IConfigurationManager {
   getModelPreference(): string;
 
   /**
+   * Set the preferred AI model
+   */
+  setModelPreference(model: string): Promise<void>;
+
+  /**
    * Check if user has granted permission
    */
   hasPermission(): Promise<boolean>;
