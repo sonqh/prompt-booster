@@ -151,13 +151,17 @@
     "@vscode/prompt-tsx": "^0.3.0-alpha.12"
   },
   "devDependencies": {
-    "@types/vscode": "^1.99.0",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.x",
+    "@types/vscode": "^1.99.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.50.0",
-    "typescript": "^5.3.0",
     "@vscode/test-electron": "^2.3.0",
-    "esbuild": "^0.19.0"
+    "esbuild": "^0.19.0",
+    "eslint": "^8.50.0",
+    "glob": "^13.0.1",
+    "mocha": "^11.7.5",
+    "typescript": "^5.3.0"
   }
 }
