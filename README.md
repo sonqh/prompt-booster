@@ -138,14 +138,6 @@ Access via Command Palette (`Cmd+Shift+P`):
 - **PromptBooster: Test File Generation** - Test file generation feature
 - **PromptBooster: Test Realtime Mode** - Test realtime mode integration
 
-## 📖 Documentation
-
-- **[QUICKSTART.md](QUICKSTART.md)** - 5-minute setup and testing guide
-- **[DEVELOPER.md](DEVELOPER.md)** - Architecture, APIs, development guide
-- **[REALTIME-MODE-QUICKSTART.md](REALTIME-MODE-QUICKSTART.md)** - Mode 2 user guide
-- **[STATUS.md](STATUS.md)** - Project status and next steps
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
-
 ## 🛠️ Requirements
 
 - **VS Code**: 1.99.0 or higher

@@ -1,0 +1,17 @@
+.git
+.gitignore
+tsconfig.json
+vsc-extension-quickstart.md
+**/*.test.ts
+.eslintignore
+.eslintrc.json
+**/*.map
+**/*.log
+.vscode-test
+node_modules
+src
+out/test
+test-prompt.prompt.md
+scripts
+docs
+.github
