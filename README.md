@@ -1,5 +1,3 @@
-<!-- filepath: /Users/i762309/Documents/tools/prompt-buster/README.md -->
-
 # PromptBooster
 
 A VS Code extension that enhances and optimizes your prompts using AI before sending to GitHub Copilot.
@@ -12,7 +10,6 @@ PromptBooster offers three distinct operational modes for different workflow pre
 
 - **How it works**: Right-click on `.prompt.md` files to enhance them
 - **Best for**: Users who want explicit control over when optimization happens
-- **Status**: ✅ **FULLY IMPLEMENTED**
 - **User actions**:
   - Right-click on any `.prompt.md` file → "PromptBooster: Boost This Prompt"
   - Select text to optimize only the selection
@@ -22,7 +19,6 @@ PromptBooster offers three distinct operational modes for different workflow pre
 
 - **How it works**: Automatically intercepts chat prompts, enhances them with a structured format, and detects your intent (`ask` vs `edit`).
 - **Best for**: Users who want automatic, context-aware optimization with a streamlined workflow.
-- **Status**: ✅ **FULLY IMPLEMENTED**
 - **User experience**:
   - Type `@PromptBooster your prompt` in Copilot chat
   - The AI structured your prompt into **Task**, **Context**, **Requirements**, and **Output** sections
@@ -40,7 +36,6 @@ PromptBooster offers three distinct operational modes for different workflow pre
 
 - **How it works**: Generates `.prompt.md` files for manual editing before processing
 - **Best for**: Users who prefer full editor capabilities with file persistence
-- **Status**: ✅ **FULLY IMPLEMENTED**
 - **Features**:
   - Auto-generates `.prompt.md` file with optimized prompt
   - Three naming strategies: timestamp, prompt-based, custom
@@ -147,40 +142,40 @@ Access via Command Palette (`Cmd+Shift+P`):
 
 ## 🎯 What's Implemented
 
-### Phase 1 (Step 1) - ✅ COMPLETE
+### 🔧 Manual Mode
+- Right-click enhancement of `.prompt.md` files
+- AI-powered prompt optimization and structuring
+- Flexible AI model selection (gpt-4.1, gpt-4o, claude-haiku-4.5)
+- Selection-based partial optimization
+- Real-time progress notifications with cancel option
 
-- ✅ Core infrastructure and configuration system
-- ✅ Mode management with [`ModeManager`](src/config/settings.ts)
-- ✅ Language model selection with fallback logic
-- ✅ Mode 1: Manual prompt enhancement via [`ManualMode`](src/modes/manualMode.ts)
-- ✅ Status bar mode switcher via [`ModeStatusBar`](src/ui/modeSelector.ts)
-- ✅ Commands registered in [package.json](package.json)
-- ✅ Comprehensive error handling
-- ✅ Full documentation
+### ⚡ Real-time Mode
+- Chat participant integration (`@PromptBooster` in Copilot chat)
+- Automatic prompt interception and enhancement
+- **Smart Intent Detection** - Distinguishes between "ask" and "edit" intents
+- Dynamic context-aware button suggestions
+- Structured prompt format with Task/Context/Requirements/Output sections
+- Chat reference support (`#selection`, `#file`, `#editor`)
+- Direct AI response streaming
+- Auto-optimization with configurable timeout
 
-### Phase 2 (Step 3) - ✅ COMPLETE
+### 📝 File Mode
+- Automatic `.prompt.md` file generation from chat input
+- Three file naming strategies: timestamp, prompt-based, custom
+- Dedicated file storage in `.github/prompts/` directory
+- Collision detection and automatic resolution
+- Process button for direct execution
+- CodeLens indicators for quick workflow
+- HTML comment metadata preservation
+- Full editor integration with syntax highlighting
 
-- ✅ Mode 2: Real-time chat interception via [`RealtimeMode`](src/modes/realtimeMode.ts)
-- ✅ Chat participant registration (`@PromptBooster`)
-- ✅ **Smart Intent Detection** (Ask vs Edit)
-- ✅ **Dynamic Context-Aware Buttons**
-- ✅ **Structured Prompt Optimization** (Task/Context/Requirements/Output)
-- ✅ Chat references support (`#selection`, `#file`, `#editor`)
-- ✅ Auto-optimizer with timeout handling
-- ✅ Direct AI response streaming (no Copilot forwarding)
-- ✅ Optimized prompt saved as markdown file option
-
-### Phase 3 (Step 2) - ✅ COMPLETE
-
-- ✅ Mode 3: File generation via [`FileMode`](src/modes/fileMode.ts)
-- ✅ File naming strategies (timestamp, prompt-based, custom)
-- ✅ Directory creation and management (`.github/prompts/`)
-- ✅ Collision detection and resolution
-- ✅ HTML comment preservation for metadata
-- ✅ Process button via [`ProcessButton`](src/ui/processButton.ts)
-- ✅ CodeLens provider via [`PromptFileCodeLensProvider`](src/ui/processButton.ts)
-- ✅ Comment removal before processing
-- ✅ File content template with instructions
+### 🛠️ Core Infrastructure
+- Comprehensive configuration system with VS Code settings integration
+- Mode management and switching via status bar
+- Language model provider abstraction with fallback logic
+- Dependency injection container for service orchestration
+- Robust error handling and logging
+- Full extension API compliance
 
 ## 🚀 How It Works
 
@@ -312,13 +307,9 @@ MIT License - Created by Son Quach
 - Check Output channel for "Including X reference(s)" message
 - Verify files are saved before using `#file` reference
 
-See [QUICKSTART.md](QUICKSTART.md) and [REALTIME-MODE-QUICKSTART.md](REALTIME-MODE-QUICKSTART.md) for more troubleshooting.
-
 ## 🙋 Support
 
 - Open an issue on [GitHub](https://github.com/sonquach/prompt-buster/issues)
-- Check [STATUS.md](STATUS.md) for roadmap and known issues
-- Read [DEVELOPER.md](DEVELOPER.md) for technical details
 - Review [CHANGELOG.md](CHANGELOG.md) for recent changes
 
 ---
