@@ -18,19 +18,19 @@ export class SwitchModeCommand {
     const modes: { label: string; mode: OperationMode; description: string }[] =
       [
         {
-          label: "Manual Mode",
+          label: "$(wand) Manual Mode",
           mode: "manual",
-          description: "Boost prompts via right-click menu on .prompt.md files",
+          description: "Boost prompts via right-click menu or toolbar button",
         },
         {
-          label: "Realtime Mode",
+          label: "$(rocket) Real-time Mode",
           mode: "realtime",
-          description: "Automatically optimize prompts in chat",
+          description: "Instantly intercept and optimize chat prompts",
         },
         {
-          label: "File Mode",
+          label: "$(new-file) File Mode",
           mode: "file",
-          description: "Generate .prompt.md files from prompts",
+          description: "Generate editable prompt files for maximum control",
         },
       ];
 

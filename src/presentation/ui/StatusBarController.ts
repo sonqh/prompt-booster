@@ -46,11 +46,11 @@ export class StatusBarController implements vscode.Disposable {
   private getModeIcon(mode: OperationMode): string {
     switch (mode) {
       case "manual":
-        return "edit";
+        return "wand";
       case "realtime":
-        return "zap";
+        return "rocket";
       case "file":
-        return "file";
+        return "new-file";
       default:
         return "question";
     }
