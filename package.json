@@ -4,6 +4,19 @@
   "description": "Enhance and optimize your prompts using AI before sending to GitHub Copilot",
   "version": "0.2.0",
   "publisher": "promptbooster",
+  "author": {
+    "name": "Son Quach",
+    "url": "https://github.com/sonqh"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/sonqh/prompt-booster/blob/main/README.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sonqh/prompt-booster.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sonqh/prompt-booster/issues"
+  },
   "engines": {
     "vscode": "^1.99.0"
   },
