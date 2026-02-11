@@ -1,22 +1,24 @@
 /**
- * Language model selection and management
+ * VS Code Language Model Provider
+ * Implements ILanguageModelProvider to manage AI models
  */
-
 import * as vscode from "vscode";
+import { ILanguageModelProvider } from "../../core/models/ILanguageModelProvider";
+import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
+import { ILogger } from "../../shared/interfaces/ILogger";
 
-export class LanguageModelSelector {
-  private outputChannel: vscode.OutputChannel;
+export class LanguageModelProvider implements ILanguageModelProvider {
   private lastUsedModel: vscode.LanguageModelChat | undefined;
 
-  constructor(outputChannel: vscode.OutputChannel) {
-    this.outputChannel = outputChannel;
-  }
+  constructor(
+    private configManager: IConfigurationManager,
+    private logger: ILogger,
+  ) {}
 
-  async selectModel(
+  async getModel(
     forcePrompt = false,
   ): Promise<vscode.LanguageModelChat | undefined> {
     try {
-      // Get all available models
       const models = await vscode.lm.selectChatModels({
         vendor: "copilot",
       });
@@ -27,7 +29,7 @@ export class LanguageModelSelector {
         );
       }
 
-      this.outputChannel.appendLine(
+      this.logger.log(
         `Found ${models.length} available model(s): ${models.map((m) => m.id).join(", ")}`,
       );
 
@@ -46,15 +48,13 @@ export class LanguageModelSelector {
         (m) => m.id === this.lastUsedModel?.id,
       );
       if (isLastUsedAvailable) {
-        this.outputChannel.appendLine(
-          `Using last selected model: ${this.lastUsedModel.id}`,
-        );
+        this.logger.log(`Using last selected model: ${this.lastUsedModel.id}`);
         this.warnIfSlowModel(this.lastUsedModel);
         return this.lastUsedModel;
       }
 
       // Last used model not available, show picker
-      this.outputChannel.appendLine("Last used model no longer available");
+      this.logger.log("Last used model no longer available");
       const selectedModel = await this.showModelPicker(models);
       if (selectedModel) {
         this.warnIfSlowModel(selectedModel);
@@ -62,7 +62,7 @@ export class LanguageModelSelector {
       }
       return selectedModel;
     } catch (error) {
-      this.outputChannel.appendLine(`Error selecting model: ${error}`);
+      this.logger.error("Error selecting model", error as Error);
       vscode.window.showErrorMessage(
         `Failed to select language model: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -70,12 +70,76 @@ export class LanguageModelSelector {
     }
   }
 
+  async getModelAutomatically(): Promise<vscode.LanguageModelChat | undefined> {
+    try {
+      const models = await vscode.lm.selectChatModels({
+        vendor: "copilot",
+      });
+
+      if (models.length === 0) {
+        throw new Error("No language models available");
+      }
+
+      // 1. Try last used model
+      if (this.lastUsedModel) {
+        const isAvailable = models.some((m) => m.id === this.lastUsedModel?.id);
+        if (isAvailable) {
+          this.logger.log(
+            `Using last selected model: ${this.lastUsedModel.id}`,
+          );
+          this.warnIfSlowModel(this.lastUsedModel);
+          return this.lastUsedModel;
+        }
+      }
+
+      // 2. Try preferred model from settings
+      const preference = this.configManager.getModelPreference();
+
+      const preferredModel = models.find((m) => {
+        const modelName = m.id.toLowerCase();
+        return modelName.includes(preference.toLowerCase().replace("-", ""));
+      });
+
+      if (preferredModel) {
+        this.logger.log(
+          `Using preferred model from settings: ${preferredModel.id}`,
+        );
+        this.warnIfSlowModel(preferredModel);
+        this.lastUsedModel = preferredModel;
+        return preferredModel;
+      }
+
+      // 3. Fallback to first available model (prioritizing non-slow ones)
+      const fastModels = models.filter((m) => !this.isSlowModel(m));
+      const modelToUse = fastModels.length > 0 ? fastModels[0] : models[0];
+
+      this.logger.log(`Using fallback model: ${modelToUse.id}`);
+      this.warnIfSlowModel(modelToUse);
+      this.lastUsedModel = modelToUse;
+      return modelToUse;
+    } catch (error) {
+      this.logger.error("Error getting model", error as Error);
+      return undefined;
+    }
+  }
+
+  async hasModels(): Promise<boolean> {
+    try {
+      const models = await vscode.lm.selectChatModels({ vendor: "copilot" });
+      return models.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  resetLastUsedModel(): void {
+    this.lastUsedModel = undefined;
+  }
+
   private async showModelPicker(
     models: vscode.LanguageModelChat[],
   ): Promise<vscode.LanguageModelChat | undefined> {
-    const preference = vscode.workspace
-      .getConfiguration("promptBooster")
-      .get("modelPreference", "gpt-4.1");
+    const preference = this.configManager.getModelPreference();
 
     // Create picker items
     const items = models.map((model) => {
@@ -133,101 +197,34 @@ export class LanguageModelSelector {
     });
 
     if (selected) {
-      this.outputChannel.appendLine(
-        `User selected model: ${selected.model.id}`,
-      );
+      this.logger.log(`User selected model: ${selected.model.id}`);
       return selected.model;
     }
 
     return undefined;
   }
 
-  /**
-   * Get a model automatically without user interaction
-   * Uses last used model, then preferred, then first available
-   */
-  async getModelAutomatically(): Promise<vscode.LanguageModelChat | undefined> {
-    try {
-      const models = await vscode.lm.selectChatModels({
-        vendor: "copilot",
-      });
-
-      if (models.length === 0) {
-        throw new Error("No language models available");
-      }
-
-      // 1. Try last used model
-      if (this.lastUsedModel) {
-        const isAvailable = models.some((m) => m.id === this.lastUsedModel?.id);
-        if (isAvailable) {
-          this.outputChannel.appendLine(
-            `Using last selected model: ${this.lastUsedModel.id}`,
-          );
-          this.warnIfSlowModel(this.lastUsedModel);
-          return this.lastUsedModel;
-        }
-      }
-
-      // 2. Try preferred model from settings
-      const preference = vscode.workspace
-        .getConfiguration("promptBooster")
-        .get("modelPreference", "gpt-4.1");
-
-      const preferredModel = models.find((m) => {
-        const modelName = m.id.toLowerCase();
-        return modelName.includes(preference.toLowerCase().replace("-", ""));
-      });
-
-      if (preferredModel) {
-        this.outputChannel.appendLine(
-          `Using preferred model from settings: ${preferredModel.id}`,
-        );
-        this.warnIfSlowModel(preferredModel);
-        this.lastUsedModel = preferredModel;
-        return preferredModel;
-      }
-
-      // 3. Fallback to first available model
-      this.outputChannel.appendLine(
-        `Using first available model: ${models[0].id}`,
-      );
-      this.warnIfSlowModel(models[0]);
-      this.lastUsedModel = models[0];
-      return models[0];
-    } catch (error) {
-      this.outputChannel.appendLine(`Error getting model: ${error}`);
-      return undefined;
-    }
-  }
-
-  async testModelAvailability(): Promise<boolean> {
-    try {
-      const models = await vscode.lm.selectChatModels({ vendor: "copilot" });
-      return models.length > 0;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Reset the last used model (for testing)
-   */
-  resetLastUsedModel(): void {
-    this.lastUsedModel = undefined;
-  }
-
-  /**
-   * Warn if the model is known to be slow (GPT-5 mini)
-   */
   private warnIfSlowModel(model: vscode.LanguageModelChat): void {
-    const modelId = model.id.toLowerCase();
-    if (modelId.includes("gpt-5") && modelId.includes("mini")) {
-      this.outputChannel.appendLine(
-        "⚠️  WARNING: GPT-5 mini is selected. This model may have slow response times.",
-      );
-      this.outputChannel.appendLine(
-        "⚠️  Optimization may take longer or timeout. Consider using a faster model.",
+    if (this.isSlowModel(model)) {
+      this.logger.warn("Selected model may have slow response times.");
+      this.logger.warn(
+        "Optimization may take longer or timeout. Consider using a faster model.",
       );
     }
+  }
+
+  private isSlowModel(model: vscode.LanguageModelChat): boolean {
+    const modelId = model.id.toLowerCase();
+
+    // Slow models include:
+    // - GPT-5
+    // - Opus models
+    // - any model with "thinking" or "reasoning" in the name
+    return (
+      modelId.includes("gpt-5") ||
+      modelId.includes("opus") ||
+      modelId.includes("thinking") ||
+      modelId.includes("reasoning")
+    );
   }
 }
