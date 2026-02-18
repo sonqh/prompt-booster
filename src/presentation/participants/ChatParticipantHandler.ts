@@ -71,8 +71,17 @@ export class ChatParticipantHandler {
       // Check if we should intercept
       const currentMode = configManager.getOperationMode();
       const autoOptimize = configManager.isAutoOptimizeEnabled();
+      const simplifiedMode = configManager.isSimplifiedContextModeEnabled();
 
-      if (currentMode !== "realtime" || !autoOptimize) {
+      // In simplified mode, we always intercept if it's a promptBooster request
+      // But we still respect autoOptimize setting if user wants to turn it off completely
+      // However, for explicit @PromptBooster calls, we should always run
+
+      const shouldRun =
+        simplifiedMode || // Always run in simplified mode (context-based)
+        (currentMode === "realtime" && autoOptimize); // Legacy check
+
+      if (!shouldRun) {
         stream.markdown(
           "ℹ️ PromptBooster is not in realtime mode with auto-optimization enabled.",
         );

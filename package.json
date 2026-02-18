@@ -93,6 +93,11 @@
           "default": "manual",
           "description": "Operation mode: manual (file-based), realtime (chat interception), or file (generate files)"
         },
+        "promptBooster.simplifiedContextMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable simplified context-based behavior (Chat always uses Realtime mode, Editor uses Manual mode)"
+        },
         "promptBooster.autoOptimize": {
           "type": "boolean",
           "default": false,
@@ -158,7 +163,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package --out-dir dist"
   },
   "dependencies": {
     "@vscode/chat-extension-utils": "^0.0.0-alpha.1",

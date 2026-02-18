@@ -60,6 +60,10 @@ export class MockConfigurationManager implements IConfigurationManager {
     return true;
   }
 
+  isSimplifiedContextModeEnabled(): boolean {
+    return true;
+  }
+
   // Helpers for testing
   setAutoOptimize(enabled: boolean) {
     this.autoOptimize = enabled;

@@ -56,6 +56,11 @@ export interface IConfigurationManager {
   hasPermission(): Promise<boolean>;
 
   /**
+   * Check if simplified context-based mode is enabled
+   */
+  isSimplifiedContextModeEnabled(): boolean;
+
+  /**
    * Request permission from user
    */
   requestPermission(): Promise<boolean>;

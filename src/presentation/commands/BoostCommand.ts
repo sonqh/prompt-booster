@@ -25,16 +25,45 @@ export class BoostCommand {
         return;
       }
 
-      // Get selected text or full document
+      // Determine range (selection or full document)
+      let range: vscode.Range | undefined;
       const editor = vscode.window.activeTextEditor;
-      const selection = editor?.selection;
-      const prompt =
-        selection && !selection.isEmpty
-          ? document.getText(selection)
-          : document.getText();
 
-      // Execute strategy
-      await this.manualModeStrategy.execute({ prompt });
+      if (
+        editor &&
+        editor.document.uri.toString() === document.uri.toString()
+      ) {
+        if (!editor.selection.isEmpty) {
+          range = editor.selection;
+        }
+      }
+
+      if (!range) {
+        // Fallback to full document range if no selection
+        const firstLine = document.lineAt(0);
+        const lastLine = document.lineAt(document.lineCount - 1);
+        range = new vscode.Range(firstLine.range.start, lastLine.range.end);
+      }
+
+      const prompt = document.getText(range);
+
+      this.logger.log(`Boosting document: ${document.uri.toString()}`);
+
+      // Execute strategy with full context
+      await this.manualModeStrategy.execute({
+        prompt,
+        documentUri: document.uri.toString(),
+        range: {
+          start: {
+            line: range.start.line,
+            character: range.start.character,
+          },
+          end: {
+            line: range.end.line,
+            character: range.end.character,
+          },
+        },
+      });
     } catch (error) {
       this.logger.error("BoostCommand failed", error as Error);
       vscode.window.showErrorMessage(

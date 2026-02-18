@@ -24,7 +24,9 @@ export class RealtimeModeStrategy implements IModeStrategy {
   ) {}
 
   canHandle(mode: OperationMode): boolean {
-    return mode === "realtime";
+    return (
+      mode === "realtime" || this.configManager.isSimplifiedContextModeEnabled()
+    );
   }
 
   async execute(context: ModeExecutionContext): Promise<void> {
@@ -39,8 +41,13 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
     this.logger.log(`Executing Realtime Mode Strategy: ${request.prompt}`);
 
-    // Check if auto-optimize is enabled
-    if (!this.configManager.isAutoOptimizeEnabled()) {
+    // Check if auto-optimize is enabled (legacy check) or if we are in simplified mode
+    // In simplified mode, explicit calls (@PromptBooster) should always run,
+    // but we can still respect the auto-optimize preference for implicit interception if we add that later.
+    // For now, if the handler called us, we run.
+    const isSimplified = this.configManager.isSimplifiedContextModeEnabled();
+
+    if (!isSimplified && !this.configManager.isAutoOptimizeEnabled()) {
       this.logger.log("Auto-optimize disabled - passing through");
       stream.markdown(
         "⚠️ Auto-optimization is disabled. Run **PromptBooster: Toggle Auto-Optimization** to enable.",

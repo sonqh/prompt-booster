@@ -36,11 +36,22 @@ export class StatusBarController implements vscode.Disposable {
    * Update status bar display based on current mode
    */
   updateStatusBar(): void {
+    if (this.configManager.isSimplifiedContextModeEnabled()) {
+      // In simplified mode, we don't need to show the mode picker
+      // We could either hide it or show "PromptBooster: Active"
+      this.statusBarItem.text = "$(rocket) PromptBooster";
+      this.statusBarItem.tooltip = "PromptBooster is active";
+      this.statusBarItem.command = undefined; // No mode switching
+      return;
+    }
+
     const mode = this.configManager.getOperationMode();
     const modeIcon = this.getModeIcon(mode);
     const modeName = this.getModeName(mode);
 
     this.statusBarItem.text = `$(${modeIcon}) ${modeName}`;
+    this.statusBarItem.tooltip = "Click to switch PromptBooster mode";
+    this.statusBarItem.command = "promptBooster.switchMode";
   }
 
   private getModeIcon(mode: OperationMode): string {

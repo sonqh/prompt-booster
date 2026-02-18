@@ -2,6 +2,27 @@
 
 All notable changes to the "PromptBooster" extension will be documented in this file.
 
+## [0.2.2] - 2026-02-18
+
+### Added
+
+- **Context-Aware Optimization**: References to files (e.g., `#file:utils.ts`) are now fully read and included in the optimization context, allowing the AI to see the code it is working on.
+- **Simplified Context Mode**: The extension now automatically determines the best mode based on context. Chat interactions always use Real-time optimization, while Editor commands use Manual mode. No more manual switching required.
+- **Intent Indicators**: Chat responses now show a visual indicator (`Detected Intent: ASK` or `EDIT`) to explain why specific actions were suggested.
+
+### Changed
+
+- **UX Improvements**: Renamed buttons for clarity (`Apply to Chat`, `Ask in Chat`) and improved tooltips.
+- **System Prompt**: logic extraction for better maintainability.
+- **Robust JSON Parsing**: Improved resilience against malformed AI responses during optimization.
+
+## [0.2.1] - 2026-02-17
+
+### Added
+
+- **Build Output Configuration**: Added `npm run package` script to build VSIX in dedicated `dist/` folder
+- **Git Ignore Configuration**: Added `*.vsix` and `dist/` to `.gitignore` to prevent build artifacts from being tracked
+
 ## [0.2.0] - 2026-02-10
 
 ### Added

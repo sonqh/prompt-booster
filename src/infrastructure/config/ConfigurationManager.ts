@@ -102,6 +102,10 @@ export class ConfigurationManager implements IConfigurationManager {
     return false;
   }
 
+  isSimplifiedContextModeEnabled(): boolean {
+    return this.getConfig<boolean>("simplifiedContextMode", true);
+  }
+
   /**
    * Helper to get configuration value
    */

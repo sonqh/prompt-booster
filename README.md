@@ -4,45 +4,24 @@ A VS Code extension that enhances and optimizes your prompts using AI before sen
 
 ## 🎯 Features
 
-PromptBooster offers three distinct operational modes for different workflow preferences:
+PromptBooster automatically detects your context to provide the best optimization experience:
+- **Chat**: Type `@PromptBooster` to instantly optimize your chat prompt.
+- **Editor**: Right-click any `.prompt.md` file to boost it.
 
-### ✅ Mode 1: Manual (File-Based Enhancement)
+### ✅ Real-time Optimization (Chat)
 
-- **How it works**: Right-click on `.prompt.md` files to enhance them
-- **Best for**: Users who want explicit control over when optimization happens
-- **User actions**:
-  - Right-click on any `.prompt.md` file → "PromptBooster: Boost This Prompt"
-  - Select text to optimize only the selection
-  - Watch progress notification, then see optimized prompt replace original
+- **Context-Aware**: Reads the content of files you reference (e.g., `#file:utils.ts`) to give the AI crucial context.
+- **Smart Intent Detection**: Automatically detects if you are *Asking* or *Editing*.
+- **Dynamic Actions**:
+  - `$(sparkle) Apply to Chat`: Copies the optimized prompt to Copilot input.
+  - `$(new-file) Refine in File`: Creates a `.prompt.md` file for manual editing.
 
-### ✅ Mode 2: Real-time (Chat Interception with Smart Intent Detection)
+### ✅ Manual Refinement (Editor)
 
-- **How it works**: Automatically intercepts chat prompts, enhances them with a structured format, and detects your intent (`ask` vs `edit`).
-- **Best for**: Users who want automatic, context-aware optimization with a streamlined workflow.
-- **User experience**:
-  - Type `@PromptBooster your prompt` in Copilot chat
-  - The AI structured your prompt into **Task**, **Context**, **Requirements**, and **Output** sections
-  - **Smart Intent Detection** determines if you want to *Edit Code* or *Ask a Question*
-  - **Dynamic Buttons** based on intent:
-    - **Edit Intent**:
-      - `$(sparkle) Apply Edits` - Directly run the enhanced prompt
-      - `$(edit) Refine in File` - Open `.prompt.md` for manual tweaking
-    - **Ask Intent**:
-      - `$(comment-discussion) Ask Copilot` - Send question to Copilot
-      - `$(edit) Edit` - Tweak the text
-  - Always available fallback: `$(reply) Use Original`
-
-### 📝 Mode 3: File Generation (Create & Edit Workflow)
-
-- **How it works**: Generates `.prompt.md` files for manual editing before processing
-- **Best for**: Users who prefer full editor capabilities with file persistence
-- **Features**:
-  - Auto-generates `.prompt.md` file with optimized prompt
-  - Three naming strategies: timestamp, prompt-based, custom
-  - Full editor with syntax highlighting
-  - "Process" button and CodeLens to send when ready
-  - HTML comments preserve original prompt and instructions
-  - Version control friendly storage in `.github/prompts/`
+- **Persistent**: Work in `.prompt.md` files for complex prompt engineering.
+- **Version Control**: Save your best prompts to `.github/prompts/`.
+- **Right-click Boost**: Enhance your drafts with one click.
+- **Process Prompt File**: Execute your perfected prompt directly to Copilot via the Status Bar or Command Palette.
 
 ## 🚀 Quick Start
 
@@ -51,61 +30,37 @@ PromptBooster offers three distinct operational modes for different workflow pre
 1. Install "PromptBooster" from VS Code Extensions
 2. Ensure GitHub Copilot extension is installed and active
 
-### Try Mode 1 (Manual)
+### 1. In Chat (Real-time)
 
-1. Create a `.prompt.md` file with your prompt:
+1. Open Copilot Chat.
+2. Type `@PromptBooster #file:current.ts Refactor this code`.
+3. **Intent Detection**: The extension sees you want to *Edit*.
+4. Click `$(sparkle) Apply to Chat` to use the optimized prompt.
 
+### 2. In Editor (Manual File)
+
+1. Create a file named `my-task.prompt.md`.
+2. Write your rough idea:
    ```markdown
-   # My Prompt
-
-   Write a function to sort an array
+   Write a react component for a login form
    ```
+3. Right-click → **PromptBooster: Boost This Prompt**.
+4. The file updates with a professional, structured prompt.
+5. Click the `Run` CodeLens or "Process Prompt" in the status bar to send it to Copilot.
 
-2. Right-click → "PromptBooster: Boost This Prompt"
-3. Watch the prompt get enhanced with more details
-4. Use the optimized prompt with Copilot!
+## 📦 Building & Packaging
 
-### Try Mode 2 (Real-time)
+To build the extension for distribution:
 
-1. Switch to real-time mode:
-   - Click status bar (bottom right): `🔧 Manual`
-   - Select `⚡ Real-time`
+```bash
+npm run package
+```
 
-2. Enable auto-optimization (if not already on):
-   - `Cmd+Shift+P` → "Toggle Auto-Optimization"
+This generates a `.vsix` file in the `dist/` folder, which is automatically excluded from git. You can then:
 
-3. Use Copilot chat with `@PromptBooster`:
-
-   ```
-   @PromptBooster create a REST API for users
-   ```
-
-   or with references:
-
-   ```
-   @PromptBooster #selection refactor this code
-   ```
-
-4. **Smart Intent Detection**:
-   - The extension will automatically detect if you are asking a question or requesting code edits.
-   - You will see different buttons based on this detection (e.g., `$(sparkle) Apply Edits` vs `$(comment-discussion) Ask Copilot`).
-
-5. Click the primary button to proceed with the optimized, structured prompt!
-
-### Try Mode 3 (File Generation)
-
-1. Switch to file mode:
-   - Click status bar → `📝 File`
-
-2. Use the test command:
-   - `Cmd+Shift+P` → "PromptBooster: Test File Generation"
-   - File created in `.github/prompts/`
-   - Opens automatically for editing
-
-3. Edit the prompt as needed, then:
-   - Click "Process Prompt" in status bar, or
-   - Use CodeLens button at top of file, or
-   - `Cmd+Shift+P` → "PromptBooster: Process Prompt File"
+- **Test locally**: Install the VSIX manually in VS Code
+- **Publish**: Use `vsce publish` to publish to the VS Code Marketplace
+- **Share**: Distribute the VSIX file to others for manual installation
 
 ## ⚙️ Configuration
 
@@ -122,6 +77,18 @@ Configure in VS Code Settings (`Cmd+,`):
 
 ## 📋 Commands
 
+Access via Command Palette (`Cmd+Shift+P`) or use npm scripts:
+
+| Script                | Purpose                         |
+| --------------------- | ------------------------------- |
+| `npm run compile`     | Compile TypeScript to JavaScript |
+| `npm run watch`       | Watch mode for development      |
+| `npm run lint`        | Run ESLint checks               |
+| `npm run test`        | Run test suite                  |
+| `npm run package`     | Build VSIX in `dist/` folder    |
+
+### VS Code Commands
+
 Access via Command Palette (`Cmd+Shift+P`):
 
 - **PromptBooster: Boost This Prompt** - Enhance `.prompt.md` file (Manual Mode)
@@ -135,14 +102,22 @@ Access via Command Palette (`Cmd+Shift+P`):
 
 ## 🛠️ Requirements
 
+### Runtime
+
 - **VS Code**: 1.99.0 or higher
 - **GitHub Copilot**: Active subscription (for Language Model API access)
 - **OS**: macOS, Windows, or Linux
-- **Node.js**: 20.x or higher (for development)
+
+### Development & Building
+
+- **Node.js**: 20.x or higher
+- **npm**: 8.x or higher
+- **VSCE**: Automatically installed with dev dependencies (for `npm run package`)
 
 ## 🎯 What's Implemented
 
 ### 🔧 Manual Mode
+
 - Right-click enhancement of `.prompt.md` files
 - AI-powered prompt optimization and structuring
 - Flexible AI model selection (gpt-4.1, gpt-4o, claude-haiku-4.5)
@@ -150,6 +125,7 @@ Access via Command Palette (`Cmd+Shift+P`):
 - Real-time progress notifications with cancel option
 
 ### ⚡ Real-time Mode
+
 - Chat participant integration (`@PromptBooster` in Copilot chat)
 - Automatic prompt interception and enhancement
 - **Smart Intent Detection** - Distinguishes between "ask" and "edit" intents
@@ -160,6 +136,7 @@ Access via Command Palette (`Cmd+Shift+P`):
 - Auto-optimization with configurable timeout
 
 ### 📝 File Mode
+
 - Automatic `.prompt.md` file generation from chat input
 - Three file naming strategies: timestamp, prompt-based, custom
 - Dedicated file storage in `.github/prompts/` directory
@@ -170,6 +147,7 @@ Access via Command Palette (`Cmd+Shift+P`):
 - Full editor integration with syntax highlighting
 
 ### 🛠️ Core Infrastructure
+
 - Comprehensive configuration system with VS Code settings integration
 - Mode management and switching via status bar
 - Language model provider abstraction with fallback logic
