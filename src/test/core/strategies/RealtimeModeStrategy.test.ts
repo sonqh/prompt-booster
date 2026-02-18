@@ -8,6 +8,7 @@ import {
   MockLanguageModelProvider,
   MockOptimizationService,
   MockConfigurationManager,
+  MockFileSystem,
 } from "../../mocks/MockServices";
 import { MockLogger } from "../../mocks/MockLogger";
 
@@ -16,18 +17,21 @@ suite("RealtimeModeStrategy Test Suite", () => {
   let mockModelProvider: MockLanguageModelProvider;
   let mockOptimizer: MockOptimizationService;
   let mockConfig: MockConfigurationManager;
+  let mockFileSystem: MockFileSystem;
   let mockLogger: MockLogger;
 
   setup(() => {
     mockModelProvider = new MockLanguageModelProvider();
     mockOptimizer = new MockOptimizationService();
     mockConfig = new MockConfigurationManager();
+    mockFileSystem = new MockFileSystem();
     mockLogger = new MockLogger();
 
     strategy = new RealtimeModeStrategy(
       mockOptimizer,
       mockModelProvider,
       mockConfig,
+      mockFileSystem,
       mockLogger,
     );
   });
@@ -130,5 +134,51 @@ suite("RealtimeModeStrategy Test Suite", () => {
 
     assert.ok(mockStream.output.includes("No language model available"));
     assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 0);
+  });
+
+  test("execute resolves file references", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+
+    // Setup mock file
+    const fileUri = vscode.Uri.file("/workspace/test.ts");
+    await mockFileSystem.writeFile(fileUri, "console.log('test')");
+
+    const mockStream = {
+      output: [] as string[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (_: any) {},
+      progress: function (_: string) {},
+    };
+
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: {
+          prompt: "Optimize this",
+          command: "",
+          references: [{ value: fileUri }],
+          toolCalls: [],
+        },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    // Spy on optimizeStructured to check the passed prompt
+    let capturedPrompt = "";
+    const originalOptimize =
+      mockOptimizer.optimizeStructured.bind(mockOptimizer);
+    mockOptimizer.optimizeStructured = async (prompt, options) => {
+      capturedPrompt = prompt;
+      return originalOptimize(prompt, options);
+    };
+
+    await strategy.execute(context);
+
+    // Verify file content was included in the prompt
+    assert.ok(capturedPrompt.includes("File: /workspace/test.ts"));
+    assert.ok(capturedPrompt.includes("console.log('test')"));
   });
 });

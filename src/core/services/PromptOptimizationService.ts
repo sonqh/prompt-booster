@@ -1,7 +1,4 @@
-/**
- * Prompt Optimization Service - Core business logic
- * Refactored from promptBooster.ts with dependency injection
- */
+import { SYSTEM_PROMPTS } from "../prompts/SystemPrompts";
 import { IPromptOptimizationService } from "./IPromptOptimizationService";
 import {
   PromptResult,
@@ -25,7 +22,7 @@ export class PromptOptimizationService implements IPromptOptimizationService {
     prompt: string,
     options: OptimizationOptions,
   ): Promise<PromptResult> {
-    const systemPrompt = this.getSystemPrompt();
+    const systemPrompt = SYSTEM_PROMPTS.OPTIMIZATION;
 
     this.logger.log("Starting structured prompt optimization...");
     this.logger.log(`Original prompt length: ${prompt.length} characters`);
@@ -48,29 +45,9 @@ export class PromptOptimizationService implements IPromptOptimizationService {
       }
 
       result = result.trim();
-
-      // Clean up markdown code blocks if present (common with LLMs even when asked for pure JSON)
-      result = result
-        .replace(/^```json\n/, "")
-        .replace(/\n```$/, "")
-        .replace(/^```\n/, "");
-
       this.logger.log(`AI Response length: ${result.length} characters`);
 
-      let parsed: PromptResult;
-      try {
-        parsed = JSON.parse(result);
-      } catch (e) {
-        // Fallback if JSON parsing fails
-        this.logger.warn("Failed to parse JSON response. Fallback to text.");
-        return {
-          enhancedPrompt: result,
-          intent: "ask", // Default to ask
-        };
-      }
-
-      this.logger.log(`Optimization completed. Intent: ${parsed.intent}`);
-      return parsed;
+      return this.parseResponse(result);
     } catch (error) {
       this.logger.error("Optimization error", error as Error);
 
@@ -84,36 +61,40 @@ export class PromptOptimizationService implements IPromptOptimizationService {
     }
   }
 
+  private parseResponse(response: string): PromptResult {
+    // 1. Try direct parsing
+    try {
+      return JSON.parse(response);
+    } catch (e) {
+      // 2. Try cleaning up markdown code blocks
+      const clean = response
+        .replace(/^```json\s*/, "")
+        .replace(/^```\s*/, "")
+        .replace(/\s*```$/, "");
+
+      try {
+        return JSON.parse(clean);
+      } catch (e2) {
+        // 3. Fallback: Try to extract JSON object from text
+        const match = clean.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            return JSON.parse(match[0]);
+          } catch (e3) {
+            // Failed to extract valid JSON
+          }
+        }
+
+        this.logger.warn("Failed to parse JSON response. Fallback to text.");
+        return {
+          enhancedPrompt: response,
+          intent: "ask", // Default to ask
+        };
+      }
+    }
+  }
+
   getSystemPrompt(): string {
-    return `You are a prompt expert. Your task is to rewrite the user's raw prompt and determine their intent.
-
-Return a JSON object with this exact structure:
-{
-  "intent": "ask" | "edit",
-  "enhancedPrompt": "..."
-}
-
-Rules for Intent:
-- "edit": Use this if the user wants to write code, modify files, fix bugs, or generate new files.
-- "ask": Use this for questions, explanations, concepts, or general help that doesn't strictly require code modification.
-
-Rules for Enhanced Prompt:
-Follow this structure string for the "enhancedPrompt" value:
-**Task**
-[Clear objective]
-
-**Context**
-[Technical context]
-
-**Requirements**
-[Bullet points]
-
-**Output**
-[Expected output format]
-
-IMPORTANT:
-- Output valid JSON only.
-- Do NOT use markdown code blocks (\`\`\`).
-- Escape newlines in the JSON string properly.`;
+    return SYSTEM_PROMPTS.OPTIMIZATION;
   }
 }

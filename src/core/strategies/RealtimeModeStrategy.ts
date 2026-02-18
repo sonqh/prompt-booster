@@ -7,6 +7,7 @@ import { IModeStrategy } from "./IModeStrategy";
 import { IPromptOptimizationService } from "../services/IPromptOptimizationService";
 import { ILanguageModelProvider } from "../models/ILanguageModelProvider";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
+import { IFileSystem } from "../../shared/interfaces/IFileSystem";
 import { ILogger } from "../../shared/interfaces/ILogger";
 import { ModeExecutionContext } from "../../shared/types/PromptResult";
 import { OperationMode } from "../../shared/types/OperationMode";
@@ -18,6 +19,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     private optimizer: IPromptOptimizationService,
     private modelProvider: ILanguageModelProvider,
     private configManager: IConfigurationManager,
+    private fileSystem: IFileSystem,
     private logger: ILogger,
   ) {}
 
@@ -69,7 +71,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     this.logger.log(`Using model: ${model.name}`);
 
     // Build prompt with context
-    const promptWithContext = this.buildPromptWithContext(
+    const promptWithContext = await this.buildPromptWithContext(
       request.prompt,
       request,
     );
@@ -114,13 +116,14 @@ export class RealtimeModeStrategy implements IModeStrategy {
     stream: vscode.ChatResponseStream,
   ) {
     stream.markdown(`**Optimized Prompt**\n\n`);
+    stream.markdown(`_Detected Intent: ${intent.toUpperCase()}_\n\n`);
     stream.markdown(`> ${optimized.replace(/\n/g, "\n> ")}\n\n`);
 
     if (intent === "edit") {
       stream.button({
         command: "promptBooster.runPrompt",
-        title: "$(sparkle) Apply Edits",
-        tooltip: "Run this prompt to apply edits",
+        title: "$(sparkle) Apply to Chat",
+        tooltip: "Copy optimized prompt to Copilot Chat",
         arguments: [optimized],
       });
       stream.button({
@@ -132,8 +135,8 @@ export class RealtimeModeStrategy implements IModeStrategy {
     } else {
       stream.button({
         command: "promptBooster.runPrompt",
-        title: "$(comment-discussion) Ask Copilot",
-        tooltip: "Send enhanced prompt to Copilot",
+        title: "$(comment-discussion) Ask in Chat",
+        tooltip: "Copy enhanced question to Copilot Chat",
         arguments: [optimized],
       });
       stream.button({
@@ -152,31 +155,37 @@ export class RealtimeModeStrategy implements IModeStrategy {
     });
   }
 
-  private buildPromptWithContext(
+  private async buildPromptWithContext(
     prompt: string,
     request: vscode.ChatRequest,
-  ): string {
+  ): Promise<string> {
     let enhancedPrompt = prompt;
 
     if (request.references && request.references.length > 0) {
-      const referenceContext = request.references
-        .map((ref) => {
-          if (ref.value instanceof vscode.Uri) {
-            return `File: ${ref.value.fsPath}`;
-          } else if (ref.value instanceof vscode.Location) {
-            return `Location: ${ref.value.uri.fsPath}:${ref.value.range.start.line}`;
-          } else if (typeof ref.value === "string") {
-            return `Context: ${ref.value}`;
+      const referencePromises = request.references.map(async (ref) => {
+        if (ref.value instanceof vscode.Uri) {
+          try {
+            const content = await this.fileSystem.readFile(ref.value);
+            return `File: ${ref.value.fsPath}\n\`\`\`\n${content}\n\`\`\``;
+          } catch (error) {
+            this.logger.warn(
+              `Failed to read file reference: ${ref.value.fsPath}`,
+            );
+            return `File: ${ref.value.fsPath} (Content unreadable)`;
           }
-          // Note: Handling rich object references might require more complex logic
-          // simplified here for brevity
-          return "";
-        })
-        .filter((s) => s)
-        .join("\n\n");
+        } else if (ref.value instanceof vscode.Location) {
+          return `Location: ${ref.value.uri.fsPath}:${ref.value.range.start.line}`;
+        } else if (typeof ref.value === "string") {
+          return `Context: ${ref.value}`;
+        }
+        return "";
+      });
 
-      if (referenceContext) {
-        enhancedPrompt = `${referenceContext}\n\nUser Request:\n${prompt}`;
+      const referenceContexts = await Promise.all(referencePromises);
+      const combinedContext = referenceContexts.filter((s) => s).join("\n\n");
+
+      if (combinedContext) {
+        enhancedPrompt = `${combinedContext}\n\nUser Request:\n${prompt}`;
       }
     }
 

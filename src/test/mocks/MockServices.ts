@@ -77,17 +77,24 @@ export class MockFileSystem implements IFileSystem {
   public directories: Set<string> = new Set();
   public workspacePath: string = "/mock/workspace";
 
-  async readFile(path: string): Promise<string> {
-    return this.files.get(path) || "";
+  async readFile(path: string | vscode.Uri): Promise<string> {
+    return this.files.get(this.toKey(path)) || "";
   }
-  async writeFile(path: string, content: string): Promise<void> {
-    this.files.set(path, content);
+  async writeFile(path: string | vscode.Uri, content: string): Promise<void> {
+    this.files.set(this.toKey(path), content);
   }
-  async fileExists(path: string): Promise<boolean> {
-    return this.files.has(path);
+  async fileExists(path: string | vscode.Uri): Promise<boolean> {
+    return this.files.has(this.toKey(path));
   }
-  async createDirectory(path: string): Promise<void> {
-    this.directories.add(path);
+  async createDirectory(path: string | vscode.Uri): Promise<void> {
+    this.directories.add(this.toKey(path));
+  }
+
+  private toKey(path: string | vscode.Uri): string {
+    if (path instanceof vscode.Uri) {
+      return path.fsPath;
+    }
+    return path;
   }
   getWorkspacePath(): string | undefined {
     return this.workspacePath;

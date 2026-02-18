@@ -133,6 +133,7 @@ export class ServiceRegistry {
         c.resolve<IPromptOptimizationService>(TYPES.PromptOptimizationService),
         c.resolve<ILanguageModelProvider>(TYPES.LanguageModelProvider),
         c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
+        c.resolve<IFileSystem>(TYPES.FileSystem),
         c.resolve<ILogger>(TYPES.Logger),
       );
     });
