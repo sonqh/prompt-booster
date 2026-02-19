@@ -2,7 +2,7 @@
   "name": "promptbooster",
   "displayName": "PromptBooster",
   "description": "Enhance and optimize your prompts using AI before sending to GitHub Copilot",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "promptbooster",
   "author": {
     "name": "Son Quach",
@@ -130,7 +130,7 @@
             "gpt-4o",
             "claude-haiku-4.5"
           ],
-          "default": "gpt-4.1",
+          "default": "claude-haiku-4.5",
           "description": "Preferred AI model for prompt optimization"
         }
       }

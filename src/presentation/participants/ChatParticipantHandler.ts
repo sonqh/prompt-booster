@@ -43,7 +43,7 @@ export class ChatParticipantHandler {
 
       // Configure participant
       participant.iconPath = vscode.Uri.file(
-        path.join(context.extensionPath, "resources", "icon.png"),
+        path.join(context.extensionPath, "icon.jpg"),
       );
 
       context.subscriptions.push(participant);
