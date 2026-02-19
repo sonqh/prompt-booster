@@ -33,8 +33,8 @@ export class LanguageModelProvider implements ILanguageModelProvider {
         `Found ${models.length} available model(s): ${models.map((m) => m.id).join(", ")}`,
       );
 
-      // If user wants to choose or there's no last used model, show picker
-      if (forcePrompt || !this.lastUsedModel) {
+      // 1. Force prompt
+      if (forcePrompt) {
         const selectedModel = await this.showModelPicker(models);
         if (selectedModel) {
           this.warnIfSlowModel(selectedModel);
@@ -43,18 +43,38 @@ export class LanguageModelProvider implements ILanguageModelProvider {
         return selectedModel;
       }
 
-      // Return the last used model if it's still available
-      const isLastUsedAvailable = models.some(
-        (m) => m.id === this.lastUsedModel?.id,
-      );
-      if (isLastUsedAvailable) {
-        this.logger.log(`Using last selected model: ${this.lastUsedModel.id}`);
-        this.warnIfSlowModel(this.lastUsedModel);
-        return this.lastUsedModel;
+      // 2. Try last received model (explicit override)
+      if (this.lastUsedModel) {
+        const isLastUsedAvailable = models.some(
+          (m) => m.id === this.lastUsedModel?.id,
+        );
+        if (isLastUsedAvailable) {
+          this.logger.log(
+            `Using last selected model: ${this.lastUsedModel.id}`,
+          );
+          this.warnIfSlowModel(this.lastUsedModel);
+          return this.lastUsedModel;
+        }
+        this.lastUsedModel = undefined; // Clear if unavailable
       }
 
-      // Last used model not available, show picker
-      this.logger.log("Last used model no longer available");
+      // 3. Try preferred model from settings
+      const preference = this.configManager.getModelPreference();
+      const preferredModel = models.find((m) => {
+        const modelName = m.id.toLowerCase();
+        return modelName.includes(preference.toLowerCase().replace("-", ""));
+      });
+
+      if (preferredModel) {
+        this.logger.log(
+          `Using preferred model from settings: ${preferredModel.id}`,
+        );
+        this.warnIfSlowModel(preferredModel);
+        return preferredModel;
+      }
+
+      // 4. Default to picker
+      this.logger.log("No preferred model found, showing picker");
       const selectedModel = await this.showModelPicker(models);
       if (selectedModel) {
         this.warnIfSlowModel(selectedModel);
@@ -105,7 +125,6 @@ export class LanguageModelProvider implements ILanguageModelProvider {
           `Using preferred model from settings: ${preferredModel.id}`,
         );
         this.warnIfSlowModel(preferredModel);
-        this.lastUsedModel = preferredModel;
         return preferredModel;
       }
 
@@ -115,7 +134,6 @@ export class LanguageModelProvider implements ILanguageModelProvider {
 
       this.logger.log(`Using fallback model: ${modelToUse.id}`);
       this.warnIfSlowModel(modelToUse);
-      this.lastUsedModel = modelToUse;
       return modelToUse;
     } catch (error) {
       this.logger.error("Error getting model", error as Error);
