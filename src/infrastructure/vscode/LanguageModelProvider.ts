@@ -61,8 +61,8 @@ export class LanguageModelProvider implements ILanguageModelProvider {
       // 3. Try preferred model from settings
       const preference = this.configManager.getModelPreference();
       const preferredModel = models.find((m) => {
-        const modelName = m.id.toLowerCase();
-        return modelName.includes(preference.toLowerCase().replace("-", ""));
+        const modelName = m.id.toLowerCase().replace(/-/g, "");
+        return modelName.includes(preference.toLowerCase().replace(/-/g, ""));
       });
 
       if (preferredModel) {
@@ -116,8 +116,8 @@ export class LanguageModelProvider implements ILanguageModelProvider {
       const preference = this.configManager.getModelPreference();
 
       const preferredModel = models.find((m) => {
-        const modelName = m.id.toLowerCase();
-        return modelName.includes(preference.toLowerCase().replace("-", ""));
+        const modelName = m.id.toLowerCase().replace(/-/g, "");
+        return modelName.includes(preference.toLowerCase().replace(/-/g, ""));
       });
 
       if (preferredModel) {
@@ -163,7 +163,8 @@ export class LanguageModelProvider implements ILanguageModelProvider {
     const items = models.map((model) => {
       const isPreferred = model.id
         .toLowerCase()
-        .includes(preference.toLowerCase().replace("-", ""));
+        .replace(/-/g, "")
+        .includes(preference.toLowerCase().replace(/-/g, ""));
       const isLastUsed =
         this.lastUsedModel && model.id === this.lastUsedModel.id;
 
