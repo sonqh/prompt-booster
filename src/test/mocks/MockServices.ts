@@ -185,3 +185,39 @@ export class MockOptimizationService implements IPromptOptimizationService {
     return "System Prompt";
   }
 }
+
+/**
+ * Mock MCP Tool Registry
+ */
+export class MockMCPToolRegistry {
+  public discoverCalled = 0;
+  private catalog: import("../../core/services/MCPToolRegistry").MCPToolDescriptor[] = [];
+
+  setMockCatalog(
+    tools: import("../../core/services/MCPToolRegistry").MCPToolDescriptor[],
+  ) {
+    this.catalog = tools;
+  }
+
+  async discover(): Promise<void> {
+    this.discoverCalled++;
+  }
+
+  getToolCatalog() {
+    return this.catalog.filter((t) => t.enabled);
+  }
+
+  getServerNames(): string[] {
+    return [...new Set(this.catalog.map((t) => t.serverName))];
+  }
+
+  formatForSystemPrompt(
+    tools: import("../../core/services/MCPToolRegistry").MCPToolDescriptor[],
+  ): string {
+    if (tools.length === 0) return "";
+    return tools
+      .map((t) => `- \`${t.qualifiedName}\`: ${t.description}`)
+      .join("\n");
+  }
+}
+

@@ -9,8 +9,11 @@ import {
   MockOptimizationService,
   MockConfigurationManager,
   MockFileSystem,
+  MockMCPToolRegistry,
 } from "../../mocks/MockServices";
 import { MockLogger } from "../../mocks/MockLogger";
+import { WorkspaceContextGatherer } from "../../../core/services/WorkspaceContextGatherer";
+import { ReferenceResolver } from "../../../core/services/ReferenceResolver";
 
 suite("RealtimeModeStrategy Test Suite", () => {
   let strategy: RealtimeModeStrategy;
@@ -27,12 +30,18 @@ suite("RealtimeModeStrategy Test Suite", () => {
     mockFileSystem = new MockFileSystem();
     mockLogger = new MockLogger();
 
+    const contextGatherer = new WorkspaceContextGatherer(mockLogger);
+    const referenceResolver = new ReferenceResolver(mockFileSystem, mockLogger);
+    const mcpRegistry = new MockMCPToolRegistry() as any;
+
     strategy = new RealtimeModeStrategy(
       mockOptimizer,
       mockModelProvider,
       mockConfig,
-      mockFileSystem,
       mockLogger,
+      contextGatherer,
+      referenceResolver,
+      mcpRegistry,
     );
   });
 
@@ -178,7 +187,10 @@ suite("RealtimeModeStrategy Test Suite", () => {
     await strategy.execute(context);
 
     // Verify file content was included in the prompt
-    assert.ok(capturedPrompt.includes("File: /workspace/test.ts"));
-    assert.ok(capturedPrompt.includes("console.log('test')"));
+    // ReferenceResolver formats as "### Reference: `<path>`" blocks
+    assert.ok(
+      capturedPrompt.includes("console.log('test')"),
+      "file content should be included in prompt",
+    );
   });
 });

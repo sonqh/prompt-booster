@@ -13,6 +13,9 @@ export const TYPES = {
 
   // Core Services
   PromptOptimizationService: Symbol.for("IPromptOptimizationService"),
+  WorkspaceContextGatherer: Symbol.for("WorkspaceContextGatherer"),
+  ReferenceResolver: Symbol.for("ReferenceResolver"),
+  MCPToolRegistry: Symbol.for("MCPToolRegistry"),
 
   // Strategies
   ManualModeStrategy: Symbol.for("ManualModeStrategy"),
