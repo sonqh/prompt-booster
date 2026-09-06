@@ -14,6 +14,7 @@ import {
 import { MockLogger } from "../../mocks/MockLogger";
 import { WorkspaceContextGatherer } from "../../../core/services/WorkspaceContextGatherer";
 import { ReferenceResolver } from "../../../core/services/ReferenceResolver";
+import { classifyTools } from "../../../core/services/ToolAffinityClassifier";
 
 suite("RealtimeModeStrategy Test Suite", () => {
   let strategy: RealtimeModeStrategy;
@@ -22,6 +23,9 @@ suite("RealtimeModeStrategy Test Suite", () => {
   let mockConfig: MockConfigurationManager;
   let mockFileSystem: MockFileSystem;
   let mockLogger: MockLogger;
+  let mockMcpRegistry: MockMCPToolRegistry;
+  let contextGatherer: WorkspaceContextGatherer;
+  let referenceResolver: ReferenceResolver;
 
   setup(() => {
     mockModelProvider = new MockLanguageModelProvider();
@@ -29,10 +33,10 @@ suite("RealtimeModeStrategy Test Suite", () => {
     mockConfig = new MockConfigurationManager();
     mockFileSystem = new MockFileSystem();
     mockLogger = new MockLogger();
+    mockMcpRegistry = new MockMCPToolRegistry();
 
-    const contextGatherer = new WorkspaceContextGatherer(mockLogger);
-    const referenceResolver = new ReferenceResolver(mockFileSystem, mockLogger);
-    const mcpRegistry = new MockMCPToolRegistry() as any;
+    contextGatherer = new WorkspaceContextGatherer(mockLogger);
+    referenceResolver = new ReferenceResolver(mockFileSystem, mockLogger);
 
     strategy = new RealtimeModeStrategy(
       mockOptimizer,
@@ -41,7 +45,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
       mockLogger,
       contextGatherer,
       referenceResolver,
-      mcpRegistry,
+      mockMcpRegistry as any,
     );
   });
 
@@ -191,6 +195,99 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.ok(
       capturedPrompt.includes("console.log('test')"),
       "file content should be included in prompt",
+    );
+  });
+
+  test("uses cached registry via ensureCatalog (not per-request discover)", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+
+    const mockStream = {
+      output: [] as string[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (_: any) {},
+      progress: function (_: string) {},
+    };
+
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: {
+          prompt: "Summarize the authentication flow",
+          command: "",
+          references: [],
+          toolCalls: [],
+        },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.strictEqual(mockMcpRegistry.ensureCatalogCalled, 1);
+  });
+
+  test("empty MCP catalog ⇒ optimizer prompt identical to Enhancements 1–3 only", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    // mockMcpRegistry starts with an empty catalog — nothing resolvable.
+
+    const prompt = "Summarize the authentication flow";
+
+    let capturedPrompt = "";
+    const originalOptimize =
+      mockOptimizer.optimizeStructured.bind(mockOptimizer);
+    mockOptimizer.optimizeStructured = async (promptText, options) => {
+      capturedPrompt = promptText;
+      return originalOptimize(promptText, options);
+    };
+
+    const mockStream = {
+      output: [] as string[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (_: any) {},
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: {
+          prompt,
+          command: "",
+          references: [],
+          toolCalls: [],
+        },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    // Reconstruct the Enhancements 1–3 assembly with the same collaborators
+    // and assert byte-identity: with a zero-tool catalog, Enhancement 4 must
+    // contribute nothing at all.
+    const wsCtx = await contextGatherer.gather();
+    const preamble = contextGatherer.formatAsPromptPreamble(wsCtx);
+    const { cleanPrompt } = await referenceResolver.resolveInlineTokens(prompt);
+    const { toolAnnotations } = classifyTools(cleanPrompt, []);
+
+    const parts: string[] = [];
+    if (preamble) parts.push(preamble);
+    parts.push(
+      `### User Request\n${cleanPrompt}${
+        toolAnnotations ? "\n\n" + toolAnnotations : ""
+      }`,
+    );
+    const expected = parts.join("\n\n");
+
+    assert.strictEqual(capturedPrompt, expected);
+    assert.ok(
+      !capturedPrompt.includes("Available MCP Tools"),
+      "no MCP catalog block may appear with an empty catalog",
     );
   });
 });

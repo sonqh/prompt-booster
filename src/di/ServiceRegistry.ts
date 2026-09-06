@@ -47,6 +47,8 @@ import { IProgressService } from "../shared/interfaces/IProgressReporter";
 import { IPromptOptimizationService } from "../core/services/IPromptOptimizationService";
 import { ILanguageModelProvider } from "../core/models/ILanguageModelProvider";
 import { IModeStrategy } from "../core/strategies/IModeStrategy";
+import { IMcpEnvironmentProvider } from "../shared/interfaces/IMcpEnvironmentProvider";
+import { IConfigChangeWatcher } from "../shared/interfaces/IConfigChangeWatcher";
 
 export class ServiceRegistry {
   /**
@@ -150,6 +152,9 @@ export class ServiceRegistry {
       return new MCPToolRegistry(
         c.resolve<IFileSystem>(TYPES.FileSystem),
         c.resolve<ILogger>(TYPES.Logger),
+        c.resolve<IMcpEnvironmentProvider>(TYPES.McpEnvironmentProvider),
+        c.resolve<IConfigChangeWatcher>(TYPES.ConfigChangeWatcher),
+        c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
       );
     });
   }

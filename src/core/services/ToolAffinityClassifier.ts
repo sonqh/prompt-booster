@@ -10,17 +10,12 @@
 import type { CopilotTool } from "../../shared/types/PromptResult";
 export type { CopilotTool }; // re-export so callers only need this file
 
-// ─── MCP tool descriptor (mirrors MCPToolRegistry.MCPToolDescriptor) ─────────
+// ─── MCP tool descriptor ─────────────────────────────────────────────────────
+// Canonical type lives in shared/types/McpToolTypes.ts (single source of truth
+// shared with MCPToolRegistry) — re-exported here so callers only need this file.
 
-export interface MCPToolDescriptor {
-  serverName: string;        // e.g. "postgres-mcp"
-  toolName: string;          // e.g. "query_db"
-  qualifiedName: string;     // e.g. "postgres-mcp.query_db"
-  description: string;
-  inputSummary?: string;
-  /** Whether the server was confirmed active/enabled in the workspace. */
-  enabled: boolean;
-}
+export type { MCPToolDescriptor } from "../../shared/types/McpToolTypes";
+import type { MCPToolDescriptor } from "../../shared/types/McpToolTypes";
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 

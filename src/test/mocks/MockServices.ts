@@ -228,16 +228,28 @@ export class MockOptimizationService implements IPromptOptimizationService {
 }
 
 /**
- * Mock MCP Tool Registry
+ * Mock MCP Tool Registry — mirrors the MCPToolRegistry surface the strategies
+ * consume: ensureCatalog() (cached discovery), getToolCatalog(),
+ * getInjectableCatalog(), getCatalogFingerprint().
  */
 export class MockMCPToolRegistry {
+  public ensureCatalogCalled = 0;
+  /** Kept for any legacy callers; ensureCatalog is the strategy's entry point. */
   public discoverCalled = 0;
-  private catalog: import("../../core/services/MCPToolRegistry").MCPToolDescriptor[] = [];
+  private catalog: import("../../core/services/MCPToolRegistry").MCPToolDescriptor[] =
+    [];
 
   setMockCatalog(
     tools: import("../../core/services/MCPToolRegistry").MCPToolDescriptor[],
   ) {
     this.catalog = tools;
+  }
+
+  async ensureCatalog(): Promise<
+    import("../../core/services/MCPToolRegistry").MCPToolDescriptor[]
+  > {
+    this.ensureCatalogCalled++;
+    return this.getToolCatalog();
   }
 
   async discover(): Promise<void> {
@@ -246,6 +258,17 @@ export class MockMCPToolRegistry {
 
   getToolCatalog() {
     return this.catalog.filter((t) => t.enabled);
+  }
+
+  /** Injectable = enabled and not explicitly foreign (missing field = injectable). */
+  getInjectableCatalog() {
+    return this.catalog.filter(
+      (t) => t.enabled && t.visibility !== "foreign",
+    );
+  }
+
+  getCatalogFingerprint(): string {
+    return "mock-fingerprint";
   }
 
   getServerNames(): string[] {

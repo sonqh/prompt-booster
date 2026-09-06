@@ -20,6 +20,10 @@ const enabledTool = (
   qualifiedName: `${serverName}.${toolName}`,
   description,
   enabled: true,
+  source: "vscode-workspace",
+  sources: ["vscode-workspace"],
+  visibility: "injectable",
+  origin: "inline-schema",
 });
 
 const disabledTool = (
@@ -32,6 +36,10 @@ const disabledTool = (
   qualifiedName: `${serverName}.${toolName}`,
   description,
   enabled: false,
+  source: "vscode-workspace",
+  sources: ["vscode-workspace"],
+  visibility: "injectable",
+  origin: "inline-schema",
 });
 
 suite("ToolAffinityClassifier", () => {

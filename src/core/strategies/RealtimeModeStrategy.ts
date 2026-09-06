@@ -228,8 +228,8 @@ export class RealtimeModeStrategy implements IModeStrategy {
     }
     if (explicitResolved) parts.push(explicitResolved);
 
-    // Enhancement 4: Discover MCP tools from all config sources
-    await this.mcpToolRegistry.discover();
+    // Enhancement 4: Discover MCP tools (cached; stale-while-revalidate)
+    await this.mcpToolRegistry.ensureCatalog();
     const mcpCatalog = this.mcpToolRegistry.getToolCatalog();
 
     // Enhancement 1 + 4: Classify built-in and MCP tools
