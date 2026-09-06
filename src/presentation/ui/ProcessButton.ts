@@ -3,6 +3,7 @@
  */
 
 import * as vscode from "vscode";
+import { extractFeedbackId } from "../../core/services/PromptFeedbackLog";
 
 export class ProcessButton {
   private statusBarItem: vscode.StatusBarItem;
@@ -48,23 +49,45 @@ export class PromptFileCodeLensProvider implements vscode.CodeLensProvider {
   provideCodeLenses(
     document: vscode.TextDocument,
   ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-    const config = vscode.workspace.getConfiguration("promptBooster");
-    const mode = config.get<string>("operationMode");
-
-    // Only show in file mode
-    if (mode !== "file" || !document.fileName.endsWith(".prompt.md")) {
+    if (!document.fileName.endsWith(".prompt.md")) {
       return [];
     }
 
-    // Add CodeLens at the top of the file
     const topOfDocument = new vscode.Range(0, 0, 0, 0);
-    const codeLens = new vscode.CodeLens(topOfDocument, {
-      title: "▶️ Process this prompt with Copilot",
-      command: "promptBooster.processPromptFile",
-      tooltip: "Send this prompt to GitHub Copilot",
-      arguments: [document],
-    });
+    const lenses: vscode.CodeLens[] = [];
 
-    return [codeLens];
+    const config = vscode.workspace.getConfiguration("promptBooster");
+    const mode = config.get<string>("operationMode");
+
+    // Existing "Process" lens — file mode only (unchanged gate)
+    if (mode === "file") {
+      lenses.push(
+        new vscode.CodeLens(topOfDocument, {
+          title: "▶️ Process this prompt with Copilot",
+          command: "promptBooster.processPromptFile",
+          tooltip: "Send this prompt to GitHub Copilot",
+          arguments: [document],
+        }),
+      );
+    }
+
+    // "Use This Version" lens (Phase E1): shown for ANY .prompt.md whose
+    // leading comment carries a PromptBooster-Feedback-Id header — regardless
+    // of operation mode, because refine-in-file starts from chat/realtime
+    // mode. Finalizes the edit-path feedback record, then sends the edited
+    // text to chat.
+    if (extractFeedbackId(document.getText()) !== undefined) {
+      lenses.push(
+        new vscode.CodeLens(topOfDocument, {
+          title: "✓ Use This Version",
+          command: "promptBooster.usePromptVersion",
+          tooltip:
+            "Record this version as the final prompt and send it to GitHub Copilot",
+          arguments: [document],
+        }),
+      );
+    }
+
+    return lenses;
   }
 }

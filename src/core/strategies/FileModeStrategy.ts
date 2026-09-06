@@ -12,6 +12,7 @@ import { ILogger } from "../../shared/interfaces/ILogger";
 import { IProgressService } from "../../shared/interfaces/IProgressReporter";
 import { ModeExecutionContext } from "../../shared/types/PromptResult";
 import { OperationMode } from "../../shared/types/OperationMode";
+import { stripHtmlComments } from "../services/PromptFeedbackLog";
 
 export class FileModeStrategy implements IModeStrategy {
   constructor(
@@ -74,11 +75,17 @@ export class FileModeStrategy implements IModeStrategy {
   }
 
   /**
-   * Generate a prompt file with the optimized content
+   * Generate a prompt file with the optimized content.
+   *
+   * `feedbackId` (Phase E1, optional) is embedded as a
+   * `PromptBooster-Feedback-Id:` line inside the leading header comment so
+   * the "Use This Version" code lens can finalize the edit-path feedback
+   * record with the user's final text.
    */
   async generatePromptFile(
     original: string,
     optimized: string,
+    feedbackId?: string,
   ): Promise<string | undefined> {
     try {
       const outputDir = this.configManager.getFileOutputDirectory();
@@ -100,7 +107,7 @@ export class FileModeStrategy implements IModeStrategy {
 
       const filePath = this.fileSystem.joinPath(fullOutputPath, filename);
 
-      const content = this.buildFileContent(original, optimized);
+      const content = this.buildFileContent(original, optimized, feedbackId);
 
       await this.fileSystem.writeFile(filePath, content);
 
@@ -120,8 +127,8 @@ export class FileModeStrategy implements IModeStrategy {
     try {
       this.logger.log(`Processing prompt file: ${fileName}`);
 
-      // Remove HTML comments
-      const cleanContent = content.replace(/<!--[\s\S]*?-->/g, "").trim();
+      // Remove HTML comments (shared rule with the Use This Version command)
+      const cleanContent = stripHtmlComments(content);
 
       if (!cleanContent) {
         vscode.window.showWarningMessage(
@@ -222,14 +229,18 @@ export class FileModeStrategy implements IModeStrategy {
     return filename;
   }
 
-  private buildFileContent(original: string, optimized: string): string {
+  private buildFileContent(
+    original: string,
+    optimized: string,
+    feedbackId?: string,
+  ): string {
     const timestamp = new Date().toISOString();
     return `<!--
 Original Prompt:
 ${original}
 
 Generated: ${timestamp}
-Mode: File Generation
+Mode: File Generation${feedbackId ? `\nPromptBooster-Feedback-Id: ${feedbackId}` : ""}
 -->
 
 ${optimized}
@@ -237,9 +248,8 @@ ${optimized}
 <!--
 Instructions:
 1. Edit this prompt as needed
-2. Click the "Process" button in the editor title bar, or
-3. Use Command Palette: "PromptBooster: Process Prompt File"
-4. The optimized prompt will be sent to GitHub Copilot
+2. Click "✓ Use This Version" above to send the edited prompt to GitHub Copilot
+3. In file mode you can also use "PromptBooster: Process Prompt File"
 -->
 `;
   }

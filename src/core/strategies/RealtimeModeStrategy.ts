@@ -21,6 +21,10 @@ import { WorkspaceContextGatherer } from "../services/WorkspaceContextGatherer";
 import { ReferenceResolver } from "../services/ReferenceResolver";
 import { MCPToolRegistry } from "../services/MCPToolRegistry";
 import { classifyTools, MCPToolDescriptor } from "../services/ToolAffinityClassifier";
+import {
+  IPromptFeedbackLog,
+  PendingFeedbackInput,
+} from "../services/PromptFeedbackLog";
 
 export class RealtimeModeStrategy implements IModeStrategy {
   private readonly timeoutMs = 20000; // 20 second timeout
@@ -33,6 +37,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     private contextGatherer: WorkspaceContextGatherer,
     private referenceResolver: ReferenceResolver,
     private mcpToolRegistry: MCPToolRegistry,
+    private promptFeedbackLog: IPromptFeedbackLog,
   ) {}
 
   canHandle(mode: OperationMode): boolean {
@@ -114,6 +119,17 @@ export class RealtimeModeStrategy implements IModeStrategy {
           tool: t.toolName,
         }));
 
+        // Phase E1: create the pending feedback record at render time; its id
+        // rides back through the chat buttons. Capture is fire-and-forget —
+        // a failing feedback log must never break the enhance.
+        const feedbackId = this.captureFeedback(
+          request,
+          result.enhancedPrompt,
+          result.intent,
+          suggestedTools,
+          mcpTools,
+        );
+
         this.renderInteractiveResponse(
           request.prompt,
           result.enhancedPrompt,
@@ -121,6 +137,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
           suggestedTools,
           mcpTools,
           stream,
+          feedbackId,
         );
       }
     } catch (error) {
@@ -140,6 +157,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     suggestedTools: ReturnType<typeof classifyTools>["suggestedTools"],
     mcpTools: MCPToolDescriptor[],
     stream: vscode.ChatResponseStream,
+    feedbackId?: string,
   ) {
     stream.markdown("**Optimized Prompt**\n\n");
     stream.markdown(`_Detected Intent: ${intent.toUpperCase()}_\n\n`);
@@ -166,31 +184,42 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
     stream.markdown(`> ${optimized.replace(/\n/g, "\n> ")}\n\n`);
 
+    // Buttons carry [text, feedbackId, outcome] when feedback capture is on;
+    // the trailing arguments are optional so the commands keep working
+    // without them (graceful no-feedback path, e.g. capture disabled).
     if (intent === "edit") {
       stream.button({
         command: "promptBooster.runPrompt",
         title: "$(sparkle) Apply to Chat",
         tooltip: "Copy optimized prompt to Copilot Chat",
-        arguments: [optimized],
+        arguments: feedbackId
+          ? [optimized, feedbackId, "accept"]
+          : [optimized],
       });
       stream.button({
         command: "promptBooster.createPromptFile",
         title: "$(edit) Refine in File",
         tooltip: "Open in editor for manual refinement",
-        arguments: [original, optimized],
+        arguments: feedbackId
+          ? [original, optimized, feedbackId]
+          : [original, optimized],
       });
     } else {
       stream.button({
         command: "promptBooster.runPrompt",
         title: "$(comment-discussion) Ask in Chat",
         tooltip: "Copy enhanced question to Copilot Chat",
-        arguments: [optimized],
+        arguments: feedbackId
+          ? [optimized, feedbackId, "accept"]
+          : [optimized],
       });
       stream.button({
         command: "promptBooster.createPromptFile",
         title: "$(edit) Edit",
         tooltip: "Edit prompt before sending",
-        arguments: [original, optimized],
+        arguments: feedbackId
+          ? [original, optimized, feedbackId]
+          : [original, optimized],
       });
     }
 
@@ -198,8 +227,63 @@ export class RealtimeModeStrategy implements IModeStrategy {
       command: "promptBooster.runPrompt",
       title: "$(reply) Use Original",
       tooltip: "Revert to original prompt",
-      arguments: [original],
+      arguments: feedbackId ? [original, feedbackId, "reject"] : [original],
     });
+  }
+
+  /**
+   * Best-effort observation of the chat request's tool calls. The current
+   * chat API does not reliably expose these — feature-detect and degrade.
+   */
+  private extractObservedToolCalls(
+    request: vscode.ChatRequest,
+  ): string[] | undefined {
+    const calls = (request as { toolCalls?: unknown }).toolCalls;
+    if (!Array.isArray(calls) || calls.length === 0) return undefined;
+    const names = calls
+      .map((call) =>
+        call && typeof call === "object" && "name" in call
+          ? String((call as { name: unknown }).name)
+          : undefined,
+      )
+      .filter((name): name is string => !!name);
+    return names.length > 0 ? names : undefined;
+  }
+
+  /** Create the pending feedback record; never throws across the enhance. */
+  private captureFeedback(
+    request: vscode.ChatRequest,
+    enhancedPrompt: string,
+    intent: "ask" | "edit",
+    suggestedTools: ReturnType<typeof classifyTools>["suggestedTools"],
+    mcpTools: MCPToolDescriptor[],
+  ): string | undefined {
+    if (!this.promptFeedbackLog) return undefined;
+    if (
+      !this.configManager.getFeedbackLearningOptions().feedbackEnabled
+    ) {
+      return undefined; // master switch off — no capture (service double-checks)
+    }
+    try {
+      const observedToolCalls = this.extractObservedToolCalls(request);
+      const input: PendingFeedbackInput = {
+        rawPrompt: request.prompt,
+        enhancedPrompt,
+        intent,
+        builtinToolTags: [...suggestedTools],
+        mcpRefs: mcpTools.map((t) => t.qualifiedName),
+        catalogFingerprint: this.mcpToolRegistry.getCatalogFingerprint(),
+        ...(observedToolCalls ? { observedToolCalls } : {}),
+      };
+      return this.promptFeedbackLog.createPending(input);
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: feedback capture failed — enhance unaffected (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return undefined;
+    }
   }
 
   // ─── Prompt assembly (Enhancements 1–4) ───────────────────────────────────

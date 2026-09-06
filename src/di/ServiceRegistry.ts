@@ -24,6 +24,7 @@ import { ReferenceResolver } from "../core/services/ReferenceResolver";
 import { MCPToolRegistry } from "../core/services/MCPToolRegistry";
 import { McpToolIndexStore } from "../core/services/McpToolIndexStore";
 import { McpServerProbe } from "../core/services/McpServerProbe";
+import { PromptFeedbackLog } from "../core/services/PromptFeedbackLog";
 
 // Strategies
 import { ManualModeStrategy } from "../core/strategies/ManualModeStrategy";
@@ -38,6 +39,7 @@ import { SwitchModeCommand } from "../presentation/commands/SwitchModeCommand";
 import { SwitchModelCommand } from "../presentation/commands/SwitchModelCommand";
 import { ChatCommandsHandler } from "../presentation/commands/ChatCommands";
 import { RefreshMcpIndexCommand } from "../presentation/commands/RefreshMcpIndexCommand";
+import { UsePromptVersionCommand } from "../presentation/commands/UsePromptVersionCommand";
 
 // Presentation - UI & Participants
 import { ChatParticipantHandler } from "../presentation/participants/ChatParticipantHandler";
@@ -187,6 +189,14 @@ export class ServiceRegistry {
         c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
       );
     });
+
+    container.registerSingleton(TYPES.PromptFeedbackLog, (c) => {
+      return new PromptFeedbackLog(
+        c.resolve<IStateRepository>(TYPES.StateRepository),
+        c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
   }
 
   /**
@@ -211,6 +221,7 @@ export class ServiceRegistry {
         c.resolve<WorkspaceContextGatherer>(TYPES.WorkspaceContextGatherer),
         c.resolve<ReferenceResolver>(TYPES.ReferenceResolver),
         c.resolve<MCPToolRegistry>(TYPES.MCPToolRegistry),
+        c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
       );
     });
 
@@ -267,6 +278,14 @@ export class ServiceRegistry {
     container.registerSingleton(TYPES.ChatCommandsHandler, (c) => {
       return new ChatCommandsHandler(
         c.resolve<FileModeStrategy>(TYPES.FileModeStrategy),
+        c.resolve<ILogger>(TYPES.Logger),
+        c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
+      );
+    });
+
+    container.registerSingleton(TYPES.UsePromptVersionCommand, (c) => {
+      return new UsePromptVersionCommand(
+        c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
         c.resolve<ILogger>(TYPES.Logger),
       );
     });

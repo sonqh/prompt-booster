@@ -11,6 +11,7 @@ import { SwitchModeCommand } from "./SwitchModeCommand";
 import { SwitchModelCommand } from "./SwitchModelCommand";
 import { ChatCommandsHandler } from "./ChatCommands";
 import { RefreshMcpIndexCommand } from "./RefreshMcpIndexCommand";
+import { UsePromptVersionCommand } from "./UsePromptVersionCommand";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
@@ -30,6 +31,7 @@ export class CommandRegistry {
     this.registerSwitchModeCommand(context);
     this.registerChatCommands(context);
     this.registerRefreshMcpIndexCommand(context);
+    this.registerUsePromptVersionCommand(context);
     this.registerUtilityCommands(context);
 
     logger.log("All commands registered successfully");
@@ -64,6 +66,15 @@ export class CommandRegistry {
   private registerRefreshMcpIndexCommand(context: vscode.ExtensionContext): void {
     const command = this.container.resolve<RefreshMcpIndexCommand>(
       TYPES.RefreshMcpIndexCommand,
+    );
+    command.register(context);
+  }
+
+  private registerUsePromptVersionCommand(
+    context: vscode.ExtensionContext,
+  ): void {
+    const command = this.container.resolve<UsePromptVersionCommand>(
+      TYPES.UsePromptVersionCommand,
     );
     command.register(context);
   }

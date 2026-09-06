@@ -36,6 +36,29 @@ export class MockConfigurationManager implements IConfigurationManager {
     includeForeignServers: boolean;
     cacheTtlMinutes: number;
   } = { probeServers: false, includeForeignServers: false, cacheTtlMinutes: 10 };
+  /**
+   * Feedback/cache/learning defaults mirror the real ConfigurationManager
+   * (feedback + cache on, few-shot OFF — the privacy-sensitive opt-in).
+   */
+  private feedbackLearning: {
+    feedbackEnabled: boolean;
+    historyLimit: number;
+    cacheEnabled: boolean;
+    cacheTtlDays: number;
+    cacheMaxEntries: number;
+    fewShotFromFeedback: boolean;
+    maxFewShotExamples: number;
+    fewShotCharBudget: number;
+  } = {
+    feedbackEnabled: true,
+    historyLimit: 200,
+    cacheEnabled: true,
+    cacheTtlDays: 7,
+    cacheMaxEntries: 200,
+    fewShotFromFeedback: false,
+    maxFewShotExamples: 5,
+    fewShotCharBudget: 2000,
+  };
 
   getOperationMode(): OperationMode {
     return this.mode;
@@ -83,6 +106,19 @@ export class MockConfigurationManager implements IConfigurationManager {
     return { ...this.mcpProvisioning };
   }
 
+  getFeedbackLearningOptions(): {
+    feedbackEnabled: boolean;
+    historyLimit: number;
+    cacheEnabled: boolean;
+    cacheTtlDays: number;
+    cacheMaxEntries: number;
+    fewShotFromFeedback: boolean;
+    maxFewShotExamples: number;
+    fewShotCharBudget: number;
+  } {
+    return { ...this.feedbackLearning };
+  }
+
   // Helpers for testing
   setAutoOptimize(enabled: boolean) {
     this.autoOptimize = enabled;
@@ -99,6 +135,18 @@ export class MockConfigurationManager implements IConfigurationManager {
     cacheTtlMinutes: number;
   }>) {
     this.mcpProvisioning = { ...this.mcpProvisioning, ...options };
+  }
+  setFeedbackLearningOptions(options: Partial<{
+    feedbackEnabled: boolean;
+    historyLimit: number;
+    cacheEnabled: boolean;
+    cacheTtlDays: number;
+    cacheMaxEntries: number;
+    fewShotFromFeedback: boolean;
+    maxFewShotExamples: number;
+    fewShotCharBudget: number;
+  }>) {
+    this.feedbackLearning = { ...this.feedbackLearning, ...options };
   }
 }
 
@@ -224,6 +272,51 @@ export class MockOptimizationService implements IPromptOptimizationService {
   }
   getSystemPrompt(): string {
     return "System Prompt";
+  }
+}
+
+/**
+ * Mock Prompt Feedback Log — records calls for assertion and optionally throws
+ * to prove the strategy's fire-and-forget posture (capture failures never
+ * break the enhance).
+ */
+export class MockPromptFeedbackLog {
+  public createPendingCalls: unknown[] = [];
+  public resolveCalls: Array<{ feedbackId: string; outcome: string }> = [];
+  public finalizeCalls: Array<{ feedbackId: string; finalText: string }> = [];
+  /** When true, createPending throws (failure-posture tests). */
+  public failCreate = false;
+  private nextId = 0;
+
+  createPending(input: unknown): string | undefined {
+    if (this.failCreate) throw new Error("mock feedback log failure");
+    this.createPendingCalls.push(input);
+    return `feedback-${++this.nextId}`;
+  }
+
+  resolve(feedbackId: string, outcome: string): void {
+    this.resolveCalls.push({ feedbackId, outcome });
+  }
+
+  finalizeEdit(feedbackId: string, finalText: string): void {
+    this.finalizeCalls.push({ feedbackId, finalText });
+  }
+
+  getConfirmedPositives(): unknown[] {
+    return [];
+  }
+
+  getReport(): unknown {
+    return {
+      pending: 0,
+      funnel: { accept: 0, reject: 0, "edit-opened": 0, "edit-finalized": 0 },
+      acceptanceRate: null,
+      retentionRate: null,
+      retainedRefs: 0,
+      removedRefs: 0,
+      observedToolCallRecords: 0,
+      observedToolCallPrecision: null,
+    };
   }
 }
 

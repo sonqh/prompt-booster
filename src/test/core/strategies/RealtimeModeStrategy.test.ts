@@ -10,6 +10,7 @@ import {
   MockConfigurationManager,
   MockFileSystem,
   MockMCPToolRegistry,
+  MockPromptFeedbackLog,
 } from "../../mocks/MockServices";
 import { MockLogger } from "../../mocks/MockLogger";
 import { WorkspaceContextGatherer } from "../../../core/services/WorkspaceContextGatherer";
@@ -24,6 +25,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
   let mockFileSystem: MockFileSystem;
   let mockLogger: MockLogger;
   let mockMcpRegistry: MockMCPToolRegistry;
+  let mockFeedbackLog: MockPromptFeedbackLog;
   let contextGatherer: WorkspaceContextGatherer;
   let referenceResolver: ReferenceResolver;
 
@@ -34,6 +36,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
     mockFileSystem = new MockFileSystem();
     mockLogger = new MockLogger();
     mockMcpRegistry = new MockMCPToolRegistry();
+    mockFeedbackLog = new MockPromptFeedbackLog();
 
     contextGatherer = new WorkspaceContextGatherer(mockLogger);
     referenceResolver = new ReferenceResolver(mockFileSystem, mockLogger);
@@ -46,6 +49,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
       contextGatherer,
       referenceResolver,
       mockMcpRegistry as any,
+      mockFeedbackLog as any,
     );
   });
 
@@ -406,6 +410,204 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.ok(
       !capturedPrompt.includes("Available MCP Tools"),
       "no MCP catalog block may appear with an empty catalog",
+    );
+  });
+
+  // ── Phase E1: feedback capture at render time ─────────────────────────────
+
+  test("creates a pending feedback record and threads [text, feedbackId, outcome] into buttons", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockMcpRegistry.setMockCatalog([
+      {
+        serverName: "db-mcp",
+        toolName: "query",
+        qualifiedName: "db-mcp.query",
+        description: "Execute SQL queries against the project database",
+        enabled: true,
+        source: "vscode-workspace",
+        sources: ["vscode-workspace"],
+        visibility: "injectable",
+        origin: "inline-schema",
+      },
+    ]);
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: {
+          prompt: "profile the slow query on the project database",
+          command: "",
+          references: [],
+          toolCalls: [],
+        },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    // Pending record carries the raw prompt, the enhanced text, the intent,
+    // the injected tool names, and the catalog fingerprint.
+    assert.strictEqual(mockFeedbackLog.createPendingCalls.length, 1);
+    const input: any = mockFeedbackLog.createPendingCalls[0];
+    assert.strictEqual(input.rawPrompt, "profile the slow query on the project database");
+    assert.ok(typeof input.enhancedPrompt === "string");
+    assert.strictEqual(input.intent, "ask");
+    assert.deepStrictEqual(input.mcpRefs, ["db-mcp.query"]);
+    assert.deepStrictEqual(input.catalogFingerprint, "mock-fingerprint");
+
+    // Buttons carry the id: apply = [text, id, "accept"], original =
+    // [text, id, "reject"], refine = [original, optimized, id].
+    const feedbackId = "feedback-1";
+    const runPromptButtons = mockStream.buttons.filter(
+      (b: any) => b.command === "promptBooster.runPrompt",
+    );
+    assert.ok(
+      runPromptButtons.some(
+        (b: any) =>
+          b.arguments.length === 3 &&
+          b.arguments[1] === feedbackId &&
+          b.arguments[2] === "accept",
+      ),
+      "accept button carries [text, feedbackId, 'accept']",
+    );
+    assert.ok(
+      runPromptButtons.some(
+        (b: any) =>
+          b.arguments.length === 3 &&
+          b.arguments[1] === feedbackId &&
+          b.arguments[2] === "reject",
+      ),
+      "reject (Use Original) button carries [original, feedbackId, 'reject']",
+    );
+    assert.ok(
+      mockStream.buttons.some(
+        (b: any) =>
+          b.command === "promptBooster.createPromptFile" &&
+          b.arguments.length === 3 &&
+          b.arguments[2] === feedbackId,
+      ),
+      "refine button carries [original, optimized, feedbackId]",
+    );
+  });
+
+  test("attaches best-effort feature-detected request.toolCalls to the record", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: {
+          prompt: "run the tests",
+          command: "",
+          references: [],
+          toolCalls: [{ name: "mcp_db_query" }],
+        },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    const input: any = mockFeedbackLog.createPendingCalls[0];
+    assert.deepStrictEqual(input.observedToolCalls, ["mcp_db_query"]);
+  });
+
+  test("throwing feedback log ⇒ enhance still renders (fire-and-forget)", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockFeedbackLog.failCreate = true;
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt: "Test", command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 1);
+    assert.ok(
+      mockStream.output.some((s: string) => s.includes("Optimized Prompt")),
+      "the enhance must still render when feedback capture throws",
+    );
+    assert.ok(mockStream.buttons.length > 0, "buttons still render");
+    // Buttons fall back to the plain argument shapes (no feedbackId).
+    assert.ok(
+      mockStream.buttons
+        .filter((b: any) => b.command === "promptBooster.runPrompt")
+        .every((b: any) => b.arguments.length === 1),
+      "no feedbackId in button args when capture failed",
+    );
+  });
+
+  test("feedback disabled ⇒ no pending record and plain button arguments", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockConfig.setFeedbackLearningOptions({ feedbackEnabled: false });
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt: "Test", command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.strictEqual(mockFeedbackLog.createPendingCalls.length, 0);
+    assert.ok(
+      mockStream.buttons.every((b: any) => b.arguments.length <= 2),
+      "no [text, feedbackId, outcome] triples when capture is disabled",
     );
   });
 });

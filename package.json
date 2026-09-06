@@ -69,6 +69,11 @@
         "command": "promptBooster.refreshMcpIndex",
         "title": "PromptBooster: Refresh MCP Tool Index",
         "category": "PromptBooster"
+      },
+      {
+        "command": "promptBooster.usePromptVersion",
+        "title": "PromptBooster: Use This Prompt Version",
+        "category": "PromptBooster"
       }
     ],
     "chatParticipants": [
@@ -152,6 +157,46 @@
           "type": "number",
           "default": 10,
           "description": "How long the discovered MCP tool catalog stays trusted before it is revalidated in the background (stale results are served immediately)."
+        },
+        "promptBooster.feedback.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Record prompt-enhancement decisions (accepted / rejected / edited) in workspace-local state to power the feedback report. Never writes prompt text to a committable file."
+        },
+        "promptBooster.feedback.historyLimit": {
+          "type": "number",
+          "default": 200,
+          "description": "How many resolved feedback records are kept (oldest are dropped first)."
+        },
+        "promptBooster.cache.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cache the optimizer's LLM output per prompt (workspace state). Identical prompts within the TTL skip the model round-trip; everything deterministic always re-runs."
+        },
+        "promptBooster.cache.ttlDays": {
+          "type": "number",
+          "default": 7,
+          "description": "How long a cached optimizer response stays valid."
+        },
+        "promptBooster.cache.maxEntries": {
+          "type": "number",
+          "default": 200,
+          "description": "Maximum number of cached optimizer responses (least recently used are evicted first)."
+        },
+        "promptBooster.learning.fewShotFromFeedback": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt in: send prompts you explicitly accepted back to the model provider as few-shot examples when enhancing future prompts in this workspace. This shares prompt text with the model provider again — off by default."
+        },
+        "promptBooster.learning.maxFewShotExamples": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum number of few-shot examples derived from accepted feedback."
+        },
+        "promptBooster.learning.fewShotCharBudget": {
+          "type": "number",
+          "default": 2000,
+          "description": "Total character budget for the few-shot example block appended to the optimizer input."
         }
       }
     },

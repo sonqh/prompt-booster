@@ -24,6 +24,7 @@ export const TYPES = {
   MCPToolRegistry: Symbol.for("MCPToolRegistry"),
   McpToolIndexStore: Symbol.for("IMcpToolIndexStore"),
   McpServerProbe: Symbol.for("IMcpServerProbe"),
+  PromptFeedbackLog: Symbol.for("IPromptFeedbackLog"),
 
   // Strategies
   ManualModeStrategy: Symbol.for("ManualModeStrategy"),
@@ -38,6 +39,7 @@ export const TYPES = {
   SwitchModelCommand: Symbol.for("SwitchModelCommand"),
   ChatCommandsHandler: Symbol.for("ChatCommandsHandler"),
   RefreshMcpIndexCommand: Symbol.for("RefreshMcpIndexCommand"),
+  UsePromptVersionCommand: Symbol.for("UsePromptVersionCommand"),
 
   // Presentation - UI
   ChatParticipantHandler: Symbol.for("ChatParticipantHandler"),
