@@ -15,6 +15,9 @@ import { LanguageModelProvider } from "../infrastructure/vscode/LanguageModelPro
 
 // Core Services
 import { PromptOptimizationService } from "../core/services/PromptOptimizationService";
+import { WorkspaceContextGatherer } from "../core/services/WorkspaceContextGatherer";
+import { ReferenceResolver } from "../core/services/ReferenceResolver";
+import { MCPToolRegistry } from "../core/services/MCPToolRegistry";
 
 // Strategies
 import { ManualModeStrategy } from "../core/strategies/ManualModeStrategy";
@@ -113,6 +116,26 @@ export class ServiceRegistry {
       const logger = c.resolve<ILogger>(TYPES.Logger);
       return new PromptOptimizationService(logger);
     });
+
+    container.registerSingleton(TYPES.WorkspaceContextGatherer, (c) => {
+      return new WorkspaceContextGatherer(
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.ReferenceResolver, (c) => {
+      return new ReferenceResolver(
+        c.resolve<IFileSystem>(TYPES.FileSystem),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.MCPToolRegistry, (c) => {
+      return new MCPToolRegistry(
+        c.resolve<IFileSystem>(TYPES.FileSystem),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
   }
 
   /**
@@ -133,8 +156,10 @@ export class ServiceRegistry {
         c.resolve<IPromptOptimizationService>(TYPES.PromptOptimizationService),
         c.resolve<ILanguageModelProvider>(TYPES.LanguageModelProvider),
         c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
-        c.resolve<IFileSystem>(TYPES.FileSystem),
         c.resolve<ILogger>(TYPES.Logger),
+        c.resolve<WorkspaceContextGatherer>(TYPES.WorkspaceContextGatherer),
+        c.resolve<ReferenceResolver>(TYPES.ReferenceResolver),
+        c.resolve<MCPToolRegistry>(TYPES.MCPToolRegistry),
       );
     });
 
