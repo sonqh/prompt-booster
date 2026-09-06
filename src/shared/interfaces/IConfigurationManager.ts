@@ -64,4 +64,18 @@ export interface IConfigurationManager {
    * Request permission from user
    */
   requestPermission(): Promise<boolean>;
+
+  /**
+   * MCP provisioning options (Enhancement 4 v2). Read from the
+   * `promptBooster.mcp.*` settings — cheap, synchronous, safe to call
+   * on every request.
+   */
+  getMcpProvisioningOptions(): {
+    /** Opt-in: spawn stdio MCP servers in the background to list their tools. */
+    probeServers: boolean;
+    /** Opt-in: inject tools discovered from other editors' configs (annotated). */
+    includeForeignServers: boolean;
+    /** How long a discovered catalog stays trusted before revalidation. */
+    cacheTtlMinutes: number;
+  };
 }

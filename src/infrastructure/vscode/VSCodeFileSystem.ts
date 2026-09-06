@@ -31,6 +31,18 @@ export class VSCodeFileSystem implements IFileSystem {
     }
   }
 
+  async stat(
+    filePath: string | vscode.Uri,
+  ): Promise<{ mtimeMs: number; size: number } | undefined> {
+    try {
+      const uri = this.toUri(filePath);
+      const fileStat = await vscode.workspace.fs.stat(uri);
+      return { mtimeMs: fileStat.mtime, size: fileStat.size };
+    } catch {
+      return undefined;
+    }
+  }
+
   async createDirectory(dirPath: string | vscode.Uri): Promise<void> {
     const uri = this.toUri(dirPath);
     await vscode.workspace.fs.createDirectory(uri);

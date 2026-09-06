@@ -12,6 +12,9 @@ import { VSCodeProgressService } from "../infrastructure/vscode/VSCodeProgressSe
 import { ConfigurationManager } from "../infrastructure/config/ConfigurationManager";
 import { StateRepository } from "../infrastructure/state/StateRepository";
 import { LanguageModelProvider } from "../infrastructure/vscode/LanguageModelProvider";
+import { VSCodeMcpEnvironmentProvider } from "../infrastructure/vscode/VSCodeMcpEnvironmentProvider";
+import { VSCodeMcpRuntimeToolsProvider } from "../infrastructure/vscode/VSCodeMcpRuntimeToolsProvider";
+import { VSCodeConfigWatcher } from "../infrastructure/vscode/VSCodeConfigWatcher";
 
 // Core Services
 import { PromptOptimizationService } from "../core/services/PromptOptimizationService";
@@ -105,6 +108,19 @@ export class ServiceRegistry {
       );
       const logger = c.resolve<ILogger>(TYPES.Logger);
       return new LanguageModelProvider(config, logger);
+    });
+
+    // MCP adapters (Enhancement 4 v2) — registry consumes these through ports
+    container.registerSingleton(TYPES.McpEnvironmentProvider, () => {
+      return new VSCodeMcpEnvironmentProvider();
+    });
+
+    container.registerSingleton(TYPES.McpRuntimeToolsProvider, (c) => {
+      return new VSCodeMcpRuntimeToolsProvider(c.resolve<ILogger>(TYPES.Logger));
+    });
+
+    container.registerSingleton(TYPES.ConfigChangeWatcher, () => {
+      return new VSCodeConfigWatcher();
     });
   }
 

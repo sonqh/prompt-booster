@@ -132,6 +132,21 @@
           ],
           "default": "claude-haiku-4.5",
           "description": "Preferred AI model for prompt optimization"
+        },
+        "promptBooster.mcp.probeServers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt in: PromptBooster may launch your configured MCP servers in the background (stdio, hard 6s timeout) to discover their real tool lists. Runs only on activation, config change, or via the 'Refresh MCP Tool Index' command — never while enhancing a prompt."
+        },
+        "promptBooster.mcp.includeForeignServers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include tools discovered from other editors' MCP configs (Claude Desktop, Cursor, Cline). They are annotated as 'other-editor tool — only use if available here' because the Copilot agent may not be able to execute them."
+        },
+        "promptBooster.mcp.cacheTtlMinutes": {
+          "type": "number",
+          "default": 10,
+          "description": "How long the discovered MCP tool catalog stays trusted before it is revalidated in the background (stale results are served immediately)."
         }
       }
     },

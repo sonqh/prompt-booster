@@ -106,6 +106,21 @@ export class ConfigurationManager implements IConfigurationManager {
     return this.getConfig<boolean>("simplifiedContextMode", true);
   }
 
+  getMcpProvisioningOptions(): {
+    probeServers: boolean;
+    includeForeignServers: boolean;
+    cacheTtlMinutes: number;
+  } {
+    return {
+      probeServers: this.getConfig<boolean>("mcp.probeServers", false),
+      includeForeignServers: this.getConfig<boolean>(
+        "mcp.includeForeignServers",
+        false,
+      ),
+      cacheTtlMinutes: this.getConfig<number>("mcp.cacheTtlMinutes", 10),
+    };
+  }
+
   /**
    * Helper to get configuration value
    */

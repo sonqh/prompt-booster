@@ -25,6 +25,17 @@ export class MockConfigurationManager implements IConfigurationManager {
   private outputDir: string = ".github/prompts";
   private namingPattern: "timestamp" | "prompt" | "custom" = "prompt";
   private modelPreference: string = "gpt-4.1";
+  /**
+   * Simplified-context default is FALSE in the mock (the real extension
+   * defaults to true): strategy unit tests assert non-simplified behavior
+   * and opt in explicitly when they need it.
+   */
+  private simplifiedContextMode: boolean = false;
+  private mcpProvisioning: {
+    probeServers: boolean;
+    includeForeignServers: boolean;
+    cacheTtlMinutes: number;
+  } = { probeServers: false, includeForeignServers: false, cacheTtlMinutes: 10 };
 
   getOperationMode(): OperationMode {
     return this.mode;
@@ -61,7 +72,15 @@ export class MockConfigurationManager implements IConfigurationManager {
   }
 
   isSimplifiedContextModeEnabled(): boolean {
-    return true;
+    return this.simplifiedContextMode;
+  }
+
+  getMcpProvisioningOptions(): {
+    probeServers: boolean;
+    includeForeignServers: boolean;
+    cacheTtlMinutes: number;
+  } {
+    return { ...this.mcpProvisioning };
   }
 
   // Helpers for testing
@@ -71,6 +90,16 @@ export class MockConfigurationManager implements IConfigurationManager {
   setPermission(granted: boolean) {
     this.permission = granted;
   }
+  setSimplifiedContextMode(enabled: boolean) {
+    this.simplifiedContextMode = enabled;
+  }
+  setMcpProvisioningOptions(options: Partial<{
+    probeServers: boolean;
+    includeForeignServers: boolean;
+    cacheTtlMinutes: number;
+  }>) {
+    this.mcpProvisioning = { ...this.mcpProvisioning, ...options };
+  }
 }
 
 /**
@@ -79,19 +108,31 @@ export class MockConfigurationManager implements IConfigurationManager {
 export class MockFileSystem implements IFileSystem {
   public files: Map<string, string> = new Map();
   public directories: Set<string> = new Set();
+  /** Explicit stat entries; `writeFile` auto-populates fingerprint stats. */
+  public stats: Map<string, { mtimeMs: number; size: number }> = new Map();
   public workspacePath: string = "/mock/workspace";
 
   async readFile(path: string | vscode.Uri): Promise<string> {
     return this.files.get(this.toKey(path)) || "";
   }
   async writeFile(path: string | vscode.Uri, content: string): Promise<void> {
-    this.files.set(this.toKey(path), content);
+    const key = this.toKey(path);
+    this.files.set(key, content);
+    // Keep fingerprint stats coherent so mtime-based invalidation tests can
+    // simply rewrite a file (explicit `stats.set` overrides when precise
+    // values are needed).
+    this.stats.set(key, { mtimeMs: Date.now(), size: content.length });
   }
   async fileExists(path: string | vscode.Uri): Promise<boolean> {
     return this.files.has(this.toKey(path));
   }
   async createDirectory(path: string | vscode.Uri): Promise<void> {
     this.directories.add(this.toKey(path));
+  }
+  async stat(
+    path: string | vscode.Uri,
+  ): Promise<{ mtimeMs: number; size: number } | undefined> {
+    return this.stats.get(this.toKey(path));
   }
 
   private toKey(path: string | vscode.Uri): string {
