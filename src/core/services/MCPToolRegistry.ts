@@ -31,6 +31,7 @@ import * as path from "path";
 import { IFileSystem } from "../../shared/interfaces/IFileSystem";
 import { ILogger } from "../../shared/interfaces/ILogger";
 import { IMcpEnvironmentProvider } from "../../shared/interfaces/IMcpEnvironmentProvider";
+import { IMcpRuntimeToolsProvider } from "../../shared/interfaces/IMcpRuntimeToolsProvider";
 import { IConfigChangeWatcher } from "../../shared/interfaces/IConfigChangeWatcher";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import {
@@ -38,6 +39,7 @@ import {
   McpConfigSource,
   ToolVisibility,
 } from "../../shared/types/McpToolTypes";
+import { IMcpToolIndexStore } from "./IMcpToolIndexStore";
 
 export type { MCPToolDescriptor } from "../../shared/types/McpToolTypes";
 
@@ -81,6 +83,16 @@ function visibilityFor(source: McpConfigSource): ToolVisibility {
   return FOREIGN_SOURCES.has(source) ? "foreign" : "injectable";
 }
 
+/** Union of accumulated server sources and the winning source (unique, ordered). */
+function mergeSources(
+  accumulated: McpConfigSource[],
+  winner: McpConfigSource,
+): McpConfigSource[] {
+  return accumulated.includes(winner)
+    ? [...accumulated]
+    : [...accumulated, winner];
+}
+
 /** Deterministic JSON (sorted keys) so settings fingerprints are stable. */
 function stableStringify(value: unknown): string {
   const sort = (v: unknown): unknown => {
@@ -120,6 +132,8 @@ export class MCPToolRegistry {
     private fileSystem: IFileSystem,
     private logger: ILogger,
     private envProvider: IMcpEnvironmentProvider,
+    private runtimeToolsProvider: IMcpRuntimeToolsProvider,
+    private indexStore: IMcpToolIndexStore,
     private configWatcher: IConfigChangeWatcher,
     private configManager: IConfigurationManager,
   ) {
@@ -196,10 +210,25 @@ export class MCPToolRegistry {
   /**
    * Force a full re-discovery, replacing the served catalog atomically on
    * completion (in-progress discovery never mutates the served catalog).
+   *
+   * Waterfall (per server, highest priority supplies the tool list):
+   *   0. vscode-runtime (real tools the Copilot agent can execute)
+   *   1. probe-cache    (opt-in cached tools/list handshakes)
+   *   2. manual-index   (user-curated .vscode/promptbooster-mcp-tools.json)
+   *   3. inline-schema  (rare `tools: [...]` config blocks)
+   *   4. stub           (server name only — not injectable)
+   *
+   * Config sources are read before the index/probe passes because probe
+   * targets come from config; the later passes then REPLACE lower-priority
+   * descriptors per the priority table above.
    */
   async discover(): Promise<void> {
     const state: DiscoveryState = { catalog: [], servers: new Map() };
 
+    // Priority 0 — runtime must register first so it wins dedup.
+    await this.discoverFromRuntime(state);
+
+    // Config sources (inline schemas + stubs + enablement).
     await this.discoverFromVscodeWorkspace(state);
     this.discoverFromVscodeSettings(state);
     await this.discoverFromClaudeDesktop(state);
@@ -207,6 +236,12 @@ export class MCPToolRegistry {
     await this.discoverFromGitHubCopilot(state);
     await this.discoverFromCursor(state);
     await this.discoverFromCline(state);
+
+    // Priority 2 — manual index overrides inline schemas, yields to runtime.
+    await this.discoverFromManualIndex(state);
+
+    // Priority 1 — fresh probe cache overrides the manual index.
+    await this.discoverFromProbeCache(state);
 
     this.catalog = state.catalog;
     this.serverRegistry = state.servers;
@@ -350,6 +385,206 @@ export class MCPToolRegistry {
     );
   }
 
+  // ─── Real tool acquisition (Phase C) ────────────────────────────────────────
+
+  /**
+   * Priority 0: vscode.lm.tools runtime API — real descriptions for tools
+   * the downstream Copilot agent can actually execute. Runs FIRST so it
+   * wins dedup over same-name config entries. Unavailable → silent skip.
+   */
+  private async discoverFromRuntime(state: DiscoveryState): Promise<void> {
+    if (!this.runtimeToolsProvider.isAvailable()) return;
+
+    let tools;
+    try {
+      tools = await this.runtimeToolsProvider.listTools();
+    } catch (error) {
+      this.logger.warn(
+        `MCPToolRegistry: runtime tool listing failed (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return;
+    }
+    if (!Array.isArray(tools) || tools.length === 0) return;
+
+    const disabled = this.envProvider.getVsCodeDisabledServers();
+    for (const tool of tools) {
+      // Unparseable mcp_ names are name-level data only — not injectable.
+      if (!tool.serverName || !tool.toolName) continue;
+      if (disabled.has(tool.serverName)) continue;
+
+      const server = this.ensureServerEntry(state, tool.serverName, "vscode-runtime");
+      if (server.descriptors.some((d) => d.toolName === tool.toolName)) continue;
+      const descriptor: MCPToolDescriptor = {
+        serverName: tool.serverName,
+        toolName: tool.toolName,
+        qualifiedName: `${tool.serverName}.${tool.toolName}`,
+        description: tool.description ?? "",
+        enabled: server.enabled,
+        source: "vscode-runtime",
+        sources: mergeSources(server.sources, "vscode-runtime"),
+        visibility: "injectable",
+        origin: "runtime-api",
+      };
+      server.descriptors.push(descriptor);
+      state.catalog.push(descriptor);
+      this.logger.log(
+        `MCPToolRegistry [vscode-runtime]: ${descriptor.qualifiedName} registered`,
+      );
+    }
+  }
+
+  /**
+   * Priority 2: manual index. Entries override inline-schema descriptors for
+   * the same server, yield to runtime descriptors, and register servers that
+   * no config file declares (the user curated them deliberately).
+   */
+  private async discoverFromManualIndex(state: DiscoveryState): Promise<void> {
+    let entries;
+    try {
+      entries = await this.indexStore.loadManualIndex();
+    } catch {
+      return; // store contract is non-throwing; belt and braces
+    }
+    if (!Array.isArray(entries) || entries.length === 0) return;
+
+    const byServer = new Map<string, typeof entries>();
+    for (const entry of entries) {
+      const list = byServer.get(entry.server) ?? [];
+      list.push(entry);
+      byServer.set(entry.server, list);
+    }
+
+    for (const [name, serverEntries] of byServer) {
+      const existing = state.servers.get(name);
+      if (existing?.descriptors.some((d) => d.origin === "runtime-api")) {
+        continue; // runtime (priority 0) wins
+      }
+      if (existing) {
+        // Manual index (priority 2) beats inline schemas (priority 3).
+        existing.descriptors.forEach((d) => this.removeFromCatalog(state, d));
+        existing.descriptors = [];
+      }
+      const server = this.ensureServerEntry(state, name, "manual-index");
+      for (const entry of serverEntries) {
+        if (server.descriptors.some((d) => d.toolName === entry.name)) continue;
+        const descriptor: MCPToolDescriptor = {
+          serverName: name,
+          toolName: entry.name,
+          qualifiedName: `${name}.${entry.name}`,
+          description: entry.description ?? "",
+          inputSummary: entry.inputSummary,
+          enabled: server.enabled,
+          source: "manual-index",
+          sources: mergeSources(server.sources, "manual-index"),
+          visibility: "injectable",
+          origin: "manual-index",
+        };
+        server.descriptors.push(descriptor);
+        state.catalog.push(descriptor);
+      }
+    }
+  }
+
+  /**
+   * Priority 1: probe cache. Fills enabled stub servers (tools unknown to
+   * configs/runtime) from fresh cached handshakes, overriding manual-index
+   * descriptors (which typically persist older probe output anyway).
+   */
+  private async discoverFromProbeCache(state: DiscoveryState): Promise<void> {
+    for (const [name, server] of state.servers) {
+      if (!server.enabled) continue;
+      const command = server.config.command;
+      if (typeof command !== "string" || command.trim() === "") continue;
+
+      const onlyManualOrEmpty = server.descriptors.every(
+        (d) => d.origin === "manual-index",
+      );
+      if (!onlyManualOrEmpty) continue; // runtime/inline already won
+
+      let tools;
+      try {
+        tools = await this.indexStore.getProbeCache(command, server.config.args);
+      } catch {
+        continue;
+      }
+      if (!tools || tools.length === 0) continue;
+
+      server.descriptors.forEach((d) => this.removeFromCatalog(state, d));
+      server.descriptors = [];
+      for (const tool of tools) {
+        if (!tool || typeof tool.name !== "string" || tool.name === "") continue;
+        const descriptor: MCPToolDescriptor = {
+          serverName: name,
+          toolName: tool.name,
+          qualifiedName: `${name}.${tool.name}`,
+          description: tool.description ?? "",
+          inputSummary: this.summarizeInput(tool.inputSchema),
+          enabled: server.enabled,
+          source: "probe-cache",
+          sources: mergeSources(server.sources, "probe-cache"),
+          visibility: "injectable",
+          origin: "probe",
+        };
+        server.descriptors.push(descriptor);
+        state.catalog.push(descriptor);
+      }
+    }
+  }
+
+  /** Enabled servers with a launch command but no known tools — probe targets. */
+  getProbeTargets(): Array<{
+    serverName: string;
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+  }> {
+    const targets: Array<{
+      serverName: string;
+      command: string;
+      args?: string[];
+      env?: Record<string, string>;
+    }> = [];
+    for (const [name, server] of this.serverRegistry) {
+      if (!server.enabled) continue;
+      const command = server.config.command;
+      if (typeof command !== "string" || command.trim() === "") continue;
+      if (server.descriptors.length > 0) continue;
+      targets.push({
+        serverName: name,
+        command,
+        args: server.config.args,
+        env: server.config.env,
+      });
+    }
+    return targets;
+  }
+
+  /** Find or create a server entry; new entries get the given source. */
+  private ensureServerEntry(
+    state: DiscoveryState,
+    name: string,
+    source: McpConfigSource,
+  ): RegisteredServer {
+    const existing = state.servers.get(name);
+    if (existing) return existing;
+    const registered: RegisteredServer = {
+      sources: [source],
+      commandSignature: "", // unknown — never triggers conflict warnings
+      enabled: true,
+      config: {},
+      descriptors: [],
+    };
+    state.servers.set(name, registered);
+    return registered;
+  }
+
+  private removeFromCatalog(state: DiscoveryState, descriptor: MCPToolDescriptor): void {
+    const index = state.catalog.indexOf(descriptor);
+    if (index >= 0) state.catalog.splice(index, 1);
+  }
+
   // ─── Fingerprinting / cache internals ───────────────────────────────────────
 
   /** Config files the registry reads (workspace- and home-relative). */
@@ -391,6 +626,16 @@ export class MCPToolRegistry {
       );
     } catch {
       /* environment provider hiccup — fingerprint stays valid without them */
+    }
+    try {
+      // Manual index file + probe cache contribute to catalog inputs.
+      const indexPath = this.indexStore.getManualIndexPath();
+      const st = await this.fileSystem.stat(indexPath);
+      parts.push(`index:${st ? `${st.mtimeMs}:${st.size}` : "absent"}`);
+      parts.push(`probe:${this.indexStore.getCacheStamp()}`);
+      parts.push(`runtime:${this.runtimeToolsProvider.isAvailable() ? "on" : "off"}`);
+    } catch {
+      /* index store hiccup — fingerprint stays valid without it */
     }
     return parts.join("|");
   }

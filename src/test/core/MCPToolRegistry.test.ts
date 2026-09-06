@@ -13,6 +13,8 @@ import { MockConfigurationManager } from "../mocks/MockServices";
 import { MockLogger } from "../mocks/MockLogger";
 import { MockMcpEnvironmentProvider } from "../mocks/MockMcpEnvironmentProvider";
 import { MockConfigChangeWatcher } from "../mocks/MockConfigChangeWatcher";
+import { MockRuntimeToolsProvider } from "../mocks/MockRuntimeToolsProvider";
+import { MockMcpToolIndexStore } from "../mocks/MockMcpToolIndexStore";
 
 const MB = 1024 * 1024;
 
@@ -38,14 +40,18 @@ interface RegistryHarness {
   watcher: MockConfigChangeWatcher;
   config: MockConfigurationManager;
   logger: MockLogger;
+  runtime: MockRuntimeToolsProvider;
+  indexStore: MockMcpToolIndexStore;
 }
 
-/** Build a hermetic registry over mock files. */
+/** Build a hermetic registry over mock files + scripted runtime/index sources. */
 function makeRegistry(
   files: Record<string, string>,
   overrides: Partial<{
     env: MockMcpEnvironmentProvider;
     config: MockConfigurationManager;
+    runtime: MockRuntimeToolsProvider;
+    indexStore: MockMcpToolIndexStore;
   }> = {},
 ): RegistryHarness {
   const fs = new MockFileSystem();
@@ -55,10 +61,20 @@ function makeRegistry(
   }
   const env = overrides.env ?? new MockMcpEnvironmentProvider();
   const config = overrides.config ?? new MockConfigurationManager();
+  const runtime = overrides.runtime ?? new MockRuntimeToolsProvider();
+  const indexStore = overrides.indexStore ?? new MockMcpToolIndexStore();
   const watcher = new MockConfigChangeWatcher();
   const logger = new MockLogger();
-  const registry = new MCPToolRegistry(fs, logger, env, watcher, config);
-  return { registry, fs, env, watcher, config, logger };
+  const registry = new MCPToolRegistry(
+    fs,
+    logger,
+    env,
+    runtime,
+    indexStore,
+    watcher,
+    config,
+  );
+  return { registry, fs, env, watcher, config, logger, runtime, indexStore };
 }
 
 /** Let background (stale-while-revalidate) refresh promises settle. */
@@ -507,5 +523,224 @@ suite("MCPToolRegistry (hermetic)", () => {
     const output = registry.formatForSystemPrompt(catalog);
     assert.ok(output.includes("`db-mcp.query`"), "should include qualified name");
     assert.ok(output.includes("Execute SQL"), "should include description");
+  });
+
+  // ── Waterfall: runtime > probe-cache > manual-index > inline > stub ───────
+
+  suite("waterfall priority (runtime / probe-cache / manual-index)", () => {
+    test("runtime tools register without any config file (F1 acceptance shape)", async () => {
+      const runtime = new MockRuntimeToolsProvider();
+      runtime.available = true;
+      runtime.tools = [
+        {
+          runtimeName: "mcp_postgres-mcp_query_db",
+          serverName: "postgres-mcp",
+          toolName: "query_db",
+          description: "Execute SQL queries against the project database",
+        },
+      ];
+      const { registry } = makeRegistry({}, { runtime });
+      const catalog = await registry.ensureCatalog();
+      const tool = catalog.find(
+        (t) => t.qualifiedName === "postgres-mcp.query_db",
+      );
+      assert.ok(tool, "runtime tool must be in the catalog with no config files");
+      assert.strictEqual(tool.source, "vscode-runtime");
+      assert.strictEqual(tool.origin, "runtime-api");
+      assert.strictEqual(tool.visibility, "injectable");
+      assert.ok(tool.description.length > 0, "runtime descriptions are real");
+    });
+
+    test("runtime wins dedup over same-name config entries", async () => {
+      const runtime = new MockRuntimeToolsProvider();
+      runtime.available = true;
+      runtime.tools = [
+        {
+          runtimeName: "mcp_shared-server_real_tool",
+          serverName: "shared-server",
+          toolName: "real_tool",
+          description: "Runtime description",
+        },
+      ];
+      const { registry } = makeRegistry(
+        {
+          "/mock/workspace/.vscode/mcp.json": mcpJson({
+            "shared-server": {
+              command: "node",
+              tools: [{ name: "inline_tool", description: "Inline description" }],
+            },
+          }),
+        },
+        { runtime },
+      );
+      const catalog = await registry.ensureCatalog();
+      assert.ok(
+        catalog.some((t) => t.qualifiedName === "shared-server.real_tool"),
+        "runtime tool wins",
+      );
+      assert.ok(
+        !catalog.some((t) => t.qualifiedName === "shared-server.inline_tool"),
+        "inline tools of a runtime-covered server are superseded",
+      );
+    });
+
+    test("unavailable runtime provider falls through silently", async () => {
+      const runtime = new MockRuntimeToolsProvider();
+      runtime.available = false;
+      const { registry, runtime: rt } = makeRegistry({}, { runtime });
+      const catalog = await registry.ensureCatalog();
+      assert.deepStrictEqual(catalog, []);
+      assert.strictEqual(rt.listCalls, 0, "unavailable provider is not listed");
+    });
+
+    test("manual index entries register and override inline schemas", async () => {
+      const indexStore = new MockMcpToolIndexStore();
+      indexStore.manualEntries = [
+        {
+          server: "db-mcp",
+          name: "query",
+          description: "Curated description",
+        },
+      ];
+      const { registry } = makeRegistry(
+        {
+          "/mock/workspace/.vscode/mcp.json": mcpJson({
+            "db-mcp": {
+              command: "node",
+              tools: [{ name: "query", description: "Stale inline description" }],
+            },
+          }),
+        },
+        { indexStore },
+      );
+      const catalog = await registry.ensureCatalog();
+      const tool = catalog.find((t) => t.qualifiedName === "db-mcp.query");
+      assert.ok(tool, "manual entry present");
+      assert.strictEqual(tool.description, "Curated description");
+      assert.strictEqual(tool.source, "manual-index");
+      assert.strictEqual(tool.origin, "manual-index");
+      assert.strictEqual(catalog.length, 1, "inline duplicate replaced, not added");
+    });
+
+    test("manual index registers servers no config declares", async () => {
+      const indexStore = new MockMcpToolIndexStore();
+      indexStore.manualEntries = [
+        { server: "ghost-mcp", name: "boo", description: "User curated" },
+      ];
+      const { registry } = makeRegistry({}, { indexStore });
+      const catalog = await registry.ensureCatalog();
+      const tool = catalog.find((t) => t.qualifiedName === "ghost-mcp.boo");
+      assert.ok(tool, "manual-only server is registered");
+      assert.ok(registry.getServerNames().includes("ghost-mcp"));
+    });
+
+    test("runtime beats manual index for the same server", async () => {
+      const runtime = new MockRuntimeToolsProvider();
+      runtime.available = true;
+      runtime.tools = [
+        {
+          runtimeName: "mcp_db-mcp_query",
+          serverName: "db-mcp",
+          toolName: "query",
+          description: "Runtime truth",
+        },
+      ];
+      const indexStore = new MockMcpToolIndexStore();
+      indexStore.manualEntries = [
+        { server: "db-mcp", name: "query", description: "Stale curated" },
+      ];
+      const { registry } = makeRegistry({}, { runtime, indexStore });
+      const catalog = await registry.ensureCatalog();
+      const tool = catalog.find((t) => t.qualifiedName === "db-mcp.query");
+      assert.ok(tool);
+      assert.strictEqual(tool.origin, "runtime-api");
+    });
+
+    test("probe cache fills stub servers and beats the manual index", async () => {
+      const indexStore = new MockMcpToolIndexStore();
+      indexStore.manualEntries = [
+        { server: "probed-mcp", name: "cached_tool", description: "Old curated" },
+      ];
+      indexStore.probeCache.set(
+        JSON.stringify(["node", ["probe.js"]]),
+        [
+          { name: "cached_tool", description: "Fresh probe description" },
+          { name: "other_tool", description: "Also probed" },
+        ],
+      );
+      const { registry } = makeRegistry(
+        {
+          "/mock/workspace/.vscode/mcp.json": mcpJson({
+            "probed-mcp": { command: "node", args: ["probe.js"] },
+          }),
+        },
+        { indexStore },
+      );
+      const catalog = await registry.ensureCatalog();
+      const tool = catalog.find(
+        (t) => t.qualifiedName === "probed-mcp.cached_tool",
+      );
+      assert.ok(tool, "probe-cache tool present");
+      assert.strictEqual(tool.source, "probe-cache");
+      assert.strictEqual(tool.origin, "probe");
+      assert.strictEqual(tool.description, "Fresh probe description");
+      assert.ok(
+        catalog.some((t) => t.qualifiedName === "probed-mcp.other_tool"),
+        "all cached tools registered",
+      );
+    });
+
+    test("probe cache miss leaves the stub tool-less (name-level only)", async () => {
+      const { registry, indexStore } = makeRegistry({
+        "/mock/workspace/.vscode/mcp.json": mcpJson({
+          "stub-mcp": { command: "node", args: ["never-probed.js"] },
+        }),
+      });
+      assert.deepStrictEqual(indexStore.probeCache, new Map());
+      const catalog = await registry.ensureCatalog();
+      assert.deepStrictEqual(catalog, [], "stub contributes no descriptors");
+      assert.deepStrictEqual(registry.getServerNames(), ["stub-mcp"]);
+    });
+
+    test("getProbeTargets lists enabled stub servers with launch commands", async () => {
+      const { registry } = makeRegistry({
+        "/mock/workspace/.vscode/mcp.json": mcpJson({
+          "stub-mcp": { command: "node", args: ["s.js"] },
+          "disabled-stub": { command: "node", disabled: true },
+          "inline-mcp": {
+            command: "node",
+            tools: [{ name: "t", description: "has tools" }],
+          },
+        }),
+      });
+      await registry.ensureCatalog();
+      const targets = registry.getProbeTargets();
+      assert.strictEqual(targets.length, 1);
+      assert.strictEqual(targets[0].serverName, "stub-mcp");
+      assert.strictEqual(targets[0].command, "node");
+      assert.deepStrictEqual(targets[0].args, ["s.js"]);
+    });
+
+    test("manual index changes invalidate the fingerprint", async () => {
+      const indexStore = new MockMcpToolIndexStore();
+      indexStore.manualEntries = [
+        { server: "manual-mcp", name: "tool", description: "one" },
+      ];
+      const { registry, fs } = makeRegistry({}, { indexStore });
+      await registry.ensureCatalog();
+      const fp1 = registry.getCatalogFingerprint();
+      // Simulate the index file being edited (mtime/size change)
+      fs.stats.set(indexStore.getManualIndexPath(), {
+        mtimeMs: 5_000,
+        size: 123,
+      });
+      await registry.ensureCatalog();
+      await settle();
+      assert.notStrictEqual(
+        registry.getCatalogFingerprint(),
+        fp1,
+        "index file change must invalidate",
+      );
+    });
   });
 });

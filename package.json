@@ -64,6 +64,11 @@
       {
         "command": "promptBooster.testRealtimeMode",
         "title": "PromptBooster: Test Realtime Mode"
+      },
+      {
+        "command": "promptBooster.refreshMcpIndex",
+        "title": "PromptBooster: Refresh MCP Tool Index",
+        "category": "PromptBooster"
       }
     ],
     "chatParticipants": [

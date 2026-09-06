@@ -26,9 +26,9 @@ export class VSCodeConfigWatcher implements IConfigChangeWatcher {
 
   onConfigChanged(listener: () => void): IDisposable {
     this.start();
-    const subscription = this.emitter.event(() => listener());
-    this.disposables.push(subscription);
-    return subscription;
+    // The consumer owns the returned subscription; the emitter's own dispose
+    // (via watcher.dispose()) clears any remaining listeners.
+    return this.emitter.event(() => listener());
   }
 
   dispose(): void {
