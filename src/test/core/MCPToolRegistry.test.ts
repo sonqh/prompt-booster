@@ -525,6 +525,131 @@ suite("MCPToolRegistry (hermetic)", () => {
     assert.ok(output.includes("Execute SQL"), "should include description");
   });
 
+  test("formatForSystemPrompt guidance states semantic identifiers, runtime-ID mapping, and ignore-unresolvable", async () => {
+    const { registry } = makeRegistry({
+      "/mock/workspace/.vscode/mcp.json": mcpJson({
+        "db-mcp": {
+          command: "node",
+          tools: [{ name: "query", description: "Execute SQL" }],
+        },
+      }),
+    });
+    const catalog = await registry.ensureCatalog();
+    const output = registry.formatForSystemPrompt(catalog);
+    assert.ok(
+      output.includes("semantic identifiers"),
+      "guidance must present server.tool names as semantic identifiers",
+    );
+    assert.ok(
+      output.includes("runtime IDs") && output.includes("mcp_"),
+      "guidance must mention runtime-ID mapping (mcp_-prefixed names)",
+    );
+    assert.ok(
+      output.includes("OMIT") && output.includes("not probe for or invent"),
+      "guidance must say to ignore unresolvable references, never probe",
+    );
+  });
+
+  test("formatForSystemPrompt sanitizes descriptions (control chars, newlines, whitespace, 200-char cap)", () => {
+    const { registry } = makeRegistry({});
+    const tool = {
+      serverName: "s",
+      toolName: "t",
+      qualifiedName: "s.t",
+      description:
+        "Line one\nwith a newline\tand a tab\r\nand   multiple    spaces\n\n" +
+        "plus \x00\x07 control \x1b[31m chars\x1b[0m",
+      enabled: true,
+      source: "vscode-workspace" as const,
+      sources: ["vscode-workspace" as const],
+      visibility: "injectable" as const,
+      origin: "inline-schema" as const,
+    };
+    const output = registry.formatForSystemPrompt([tool]);
+    const descLine = output.split("\n").find((l) => l.startsWith("- `s.t`"))!;
+    assert.ok(descLine, "tool line present");
+    assert.ok(!/[\x00-\x1F\x7F]/.test(descLine), "no control characters remain");
+    assert.ok(!descLine.includes("\n"), "newlines stripped from description");
+    assert.ok(
+      !descLine.includes("multiple    spaces"),
+      "whitespace runs collapsed",
+    );
+    assert.ok(descLine.includes("multiple spaces"), "single spaces preserved");
+    // 200-char per-description cap (line prefix + description + marker).
+    assert.ok(descLine.length <= "- `s.t`: ".length + 200);
+  });
+
+  test("formatForSystemPrompt caps descriptions at 200 characters", () => {
+    const { registry } = makeRegistry({});
+    const long = "a".repeat(500);
+    const tool = {
+      serverName: "s",
+      toolName: "t",
+      qualifiedName: "s.t",
+      description: long,
+      enabled: true,
+      source: "vscode-workspace" as const,
+      sources: ["vscode-workspace" as const],
+      visibility: "injectable" as const,
+      origin: "inline-schema" as const,
+    };
+    const output = registry.formatForSystemPrompt([tool]);
+    const descLine = output.split("\n").find((l) => l.startsWith("- `s.t`"))!;
+    assert.ok(
+      descLine.length <= "- `s.t`: ".length + 200,
+      `description must be capped at 200 chars (got ${descLine.length})`,
+    );
+    assert.ok(descLine.includes("…"), "truncation is marked");
+  });
+
+  test("formatForSystemPrompt annotates foreign-visibility tools as other-editor", () => {
+    const { registry } = makeRegistry({});
+    const tool = {
+      serverName: "cursor-server",
+      toolName: "t",
+      qualifiedName: "cursor-server.t",
+      description: "From another editor",
+      enabled: true,
+      source: "cursor" as const,
+      sources: ["cursor" as const],
+      visibility: "foreign" as const,
+      origin: "inline-schema" as const,
+    };
+    const output = registry.formatForSystemPrompt([tool]);
+    assert.ok(
+      output.includes("other-editor tool"),
+      "foreign tools carry the only-use-if-available annotation",
+    );
+  });
+
+  test("formatForSystemPrompt keeps the tool list within the ~1500-char budget", () => {
+    const { registry } = makeRegistry({});
+    const tools = Array.from({ length: 20 }, (_, i) => ({
+      serverName: `server-${i}`,
+      toolName: `tool-${i}`,
+      qualifiedName: `server-${i}.tool-${i}`,
+      description: `d${i}-`.repeat(50), // ~200 chars each → 20 lines ≈ 4000+ chars
+      enabled: true,
+      source: "vscode-workspace" as const,
+      sources: ["vscode-workspace" as const],
+      visibility: "injectable" as const,
+      origin: "inline-schema" as const,
+    }));
+    const output = registry.formatForSystemPrompt(tools);
+    assert.ok(
+      output.includes("tool list truncated"),
+      "budget exhaustion is visible",
+    );
+    const toolLines = output
+      .split("\n")
+      .filter((l) => l.startsWith("- `server-"));
+    const described = toolLines.reduce((acc, l) => acc + l.length, 0);
+    assert.ok(
+      described <= 1500 + 200,
+      `tool-list portion must stay near the ~1500 budget (got ${described})`,
+    );
+  });
+
   // ── Waterfall: runtime > probe-cache > manual-index > inline > stub ───────
 
   suite("waterfall priority (runtime / probe-cache / manual-index)", () => {

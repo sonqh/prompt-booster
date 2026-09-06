@@ -89,34 +89,50 @@ suite("ToolAffinityClassifier", () => {
     assert.strictEqual(toolAnnotations, "");
   });
 
-  // ── MCP tool scoring ──────────────────────────────────────────────────────
+  // ── MCP tool scoring (scorer v2 — plan section 7 worked examples) ─────────
 
-  test("matches enabled MCP tool by description keyword", () => {
+  // Worked example 1: single generic token match must NOT qualify (F3 fix).
+  test("rejects a tool matching only one generic description token", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
     ];
     const { mcpTools } = classifyTools("check the slow query on the dashboard", catalog);
-    assert.ok(
-      mcpTools.some((t) => t.qualifiedName === "postgres-mcp.query_db"),
-      "should match postgres-mcp.query_db",
-    );
-  });
-
-  test("does NOT match disabled MCP tool even if description matches", () => {
-    const catalog: MCPToolDescriptor[] = [
-      disabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
-    ];
-    const { mcpTools } = classifyTools("check the slow query on the database", catalog);
     assert.deepStrictEqual(
       mcpTools,
       [],
-      "disabled tools should never be suggested",
+      "matched {query} ⇒ base 1, lengthNorm 1/√4 = 0.5 < 2.0 — rejected",
     );
   });
 
-  test("gives bonus score for server name mentioned in prompt", () => {
+  // Worked example 2: multiple matched content tokens qualify.
+  test("qualifies a tool when several description tokens match", () => {
     const catalog: MCPToolDescriptor[] = [
-      enabledTool("postgres-mcp", "query_db", "Execute SQL queries"),
+      enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
+    ];
+    const { mcpTools } = classifyTools("profile the slow query on the project database", catalog);
+    assert.ok(
+      mcpTools.some((t) => t.qualifiedName === "postgres-mcp.query_db"),
+      "matched {query, project, database} = 1+2+2 = 5 ⇒ 5/√4 = 2.5 ≥ 2.0",
+    );
+  });
+
+  // Worked example 3: the "Read a file" false-positive class (F3).
+  test("rejects filesystem tool for a prompt whose 'file' token is stopworded", () => {
+    const catalog: MCPToolDescriptor[] = [
+      enabledTool("fs-mcp", "read_file", "Read a file from the local filesystem"),
+    ];
+    const { mcpTools } = classifyTools("fix the bug in this file", catalog);
+    assert.deepStrictEqual(
+      mcpTools,
+      [],
+      "'file' is a stopword; matched {} ⇒ 0 — rejected",
+    );
+  });
+
+  // Worked example 4: whole-word server-name bonus outranks description score.
+  test("whole-word server name in the prompt qualifies and ranks first", () => {
+    const catalog: MCPToolDescriptor[] = [
+      enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
       enabledTool("github-mcp", "create_pr", "Create a pull request on GitHub"),
     ];
     const { mcpTools } = classifyTools(
@@ -124,8 +140,41 @@ suite("ToolAffinityClassifier", () => {
       catalog,
     );
     assert.ok(
-      mcpTools.length > 0 && mcpTools[0].serverName === "postgres-mcp",
-      "postgres-mcp should rank first",
+      mcpTools.length > 0 && mcpTools[0].qualifiedName === "postgres-mcp.query_db",
+      "nameBonus 4 ⇒ qualified and ranked first regardless of description",
+    );
+  });
+
+  // Worked example 5: laundry-list descriptions are penalized by lengthNorm.
+  test("penalizes laundry-list descriptions in favor of a focused tool", () => {
+    const catalog: MCPToolDescriptor[] = [
+      enabledTool(
+        "kitchen-sink-mcp",
+        "everything",
+        "create read update delete queries projects databases files folders tables columns rows everything",
+      ),
+      enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
+    ];
+    const { mcpTools } = classifyTools("profile the slow query on the project database", catalog);
+    assert.ok(
+      mcpTools.some((t) => t.qualifiedName === "postgres-mcp.query_db"),
+      "focused tool qualifies (5/√4 = 2.5)",
+    );
+    assert.ok(
+      !mcpTools.some((t) => t.qualifiedName === "kitchen-sink-mcp.everything"),
+      "laundry-list tool: same matched base 5 but 5/√12 ≈ 1.44 < 2.0 — rejected",
+    );
+  });
+
+  test("does NOT match disabled MCP tool even when it would qualify", () => {
+    const catalog: MCPToolDescriptor[] = [
+      disabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
+    ];
+    const { mcpTools } = classifyTools("profile the slow query on the project database", catalog);
+    assert.deepStrictEqual(
+      mcpTools,
+      [],
+      "disabled tools should never be suggested",
     );
   });
 
@@ -143,6 +192,19 @@ suite("ToolAffinityClassifier", () => {
     );
     const { mcpTools } = classifyTools("query the database records", catalog);
     assert.ok(mcpTools.length <= 5, `expected ≤5 results, got ${mcpTools.length}`);
+  });
+
+  test("deterministic: identical input yields identical output order", () => {
+    const catalog: MCPToolDescriptor[] = [
+      enabledTool("alpha-mcp", "query_db", "Query the project database"),
+      enabledTool("beta-mcp", "analyze_db", "Analyze the project database"),
+      enabledTool("gamma-mcp", "audit_db", "Audit the project database"),
+    ];
+    const prompt = "query analyze audit the project database";
+    const first = classifyTools(prompt, catalog).mcpTools.map((t) => t.qualifiedName);
+    const second = classifyTools(prompt, catalog).mcpTools.map((t) => t.qualifiedName);
+    assert.deepStrictEqual(first, second);
+    assert.ok(first.length > 0);
   });
 
   // ── toolAnnotations ───────────────────────────────────────────────────────

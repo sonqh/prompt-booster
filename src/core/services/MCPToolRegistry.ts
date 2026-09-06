@@ -83,6 +83,26 @@ function visibilityFor(source: McpConfigSource): ToolVisibility {
   return FOREIGN_SOURCES.has(source) ? "foreign" : "injectable";
 }
 
+/** Per-description character cap in `formatForSystemPrompt` (injection surface). */
+const MAX_DESCRIPTION_CHARS = 200;
+/** Approximate total budget for the tool-list portion of the catalog block. */
+const TOTAL_DESCRIPTION_BUDGET = 1500;
+
+/**
+ * Sanitize a third-party tool description before it enters the optimizer
+ * prompt: strip control characters (including newlines/tabs), collapse
+ * whitespace runs, trim, and cap the length with an ellipsis marker.
+ */
+function sanitizeDescription(description: string): string {
+  const cleaned = description
+    .replace(/[\x00-\x1F\x7F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.length > MAX_DESCRIPTION_CHARS
+    ? `${cleaned.slice(0, MAX_DESCRIPTION_CHARS - 1).trimEnd()}…`
+    : cleaned;
+}
+
 /** Union of accumulated server sources and the winning source (unique, ordered). */
 function mergeSources(
   accumulated: McpConfigSource[],
@@ -274,22 +294,46 @@ export class MCPToolRegistry {
   /**
    * Format a compact catalog block for injection into the LLM system prompt.
    * Only call this with the already-filtered top-N relevant tools.
+   *
+   * Descriptions are third-party untrusted text (prompt-injection surface):
+   * control characters and newlines are stripped, whitespace collapsed, each
+   * description capped at 200 chars, and the whole tool list kept within a
+   * ~1500-char budget. `server.tool` names are presented as SEMANTIC
+   * identifiers the target agent must resolve to its own runtime tool IDs —
+   * and must silently ignore when unresolvable (never probe, never invent).
    */
   formatForSystemPrompt(tools: MCPToolDescriptor[]): string {
     if (tools.length === 0) return "";
 
     const lines = [
       "Available MCP Tools (use ONLY if clearly relevant to the task):",
-      ...tools.map(
-        (t) =>
-          `- \`${t.qualifiedName}\`: ${t.description}${
-            t.inputSummary ? ` (${t.inputSummary})` : ""
-          }`,
-      ),
-      "",
-      'If an MCP tool is relevant, embed it inline (e.g., "run EXPLAIN ANALYZE via',
-      '`postgres-mcp.query_db`") at the exact sentence where the tool is needed.',
     ];
+    let used = 0;
+    for (const tool of tools) {
+      const foreignNote =
+        tool.visibility === "foreign"
+          ? " — other-editor tool, only use if available here"
+          : "";
+      const line =
+        `- \`${tool.qualifiedName}\`: ${sanitizeDescription(tool.description)}` +
+        `${tool.inputSummary ? ` (${tool.inputSummary})` : ""}${foreignNote}`;
+      if (used + line.length > TOTAL_DESCRIPTION_BUDGET) {
+        lines.push("- (tool list truncated to stay within the prompt budget)");
+        break;
+      }
+      lines.push(line);
+      used += line.length;
+    }
+
+    lines.push(
+      "",
+      "The `server.tool` names above are semantic identifiers from the user's MCP",
+      "configuration. Resolve them to your locally registered tools, which may use",
+      "different runtime IDs (e.g. `mcp_`-prefixed names). If you cannot resolve a",
+      "reference to a tool that actually exists in this environment, OMIT it and do",
+      "not probe for or invent tools. When a tool is relevant, embed its reference",
+      "inline at the exact sentence where it is needed.",
+    );
     return lines.join("\n");
   }
 

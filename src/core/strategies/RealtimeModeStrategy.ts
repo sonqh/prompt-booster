@@ -151,11 +151,17 @@ export class RealtimeModeStrategy implements IModeStrategy {
       );
     }
 
-    // MCP tool tags
+    // MCP tool tags (source-annotated: foreign opt-in tools are marked as
+    // coming from another editor's config so the user understands the caveat)
     if (mcpTools.length > 0) {
-      stream.markdown(
-        `_MCP Tools: ${mcpTools.map((t) => `\`${t.qualifiedName}\``).join(" · ")}_\n\n`,
-      );
+      const tags = mcpTools
+        .map((t) =>
+          t.visibility === "foreign"
+            ? `\`${t.qualifiedName}\` (other-editor)`
+            : `\`${t.qualifiedName}\``,
+        )
+        .join(" · ");
+      stream.markdown(`_MCP Tools: ${tags}_\n\n`);
     }
 
     stream.markdown(`> ${optimized.replace(/\n/g, "\n> ")}\n\n`);
@@ -228,9 +234,16 @@ export class RealtimeModeStrategy implements IModeStrategy {
     }
     if (explicitResolved) parts.push(explicitResolved);
 
-    // Enhancement 4: Discover MCP tools (cached; stale-while-revalidate)
+    // Enhancement 4: Discover MCP tools (cached; stale-while-revalidate) and
+    // filter to what the downstream Copilot agent can execute. Foreign-source
+    // tools (other editors' configs) are excluded unless the user opts in —
+    // when included they carry an explicit "only use if available" annotation.
     await this.mcpToolRegistry.ensureCatalog();
-    const mcpCatalog = this.mcpToolRegistry.getToolCatalog();
+    const { includeForeignServers } =
+      this.configManager.getMcpProvisioningOptions();
+    const mcpCatalog = includeForeignServers
+      ? this.mcpToolRegistry.getToolCatalog()
+      : this.mcpToolRegistry.getInjectableCatalog();
 
     // Enhancement 1 + 4: Classify built-in and MCP tools
     const { suggestedTools, mcpTools, toolAnnotations } = classifyTools(

@@ -229,6 +229,124 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.strictEqual(mockMcpRegistry.ensureCatalogCalled, 1);
   });
 
+  test("foreign-only catalog ⇒ no MCP block and no MCP tags (default)", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockMcpRegistry.setMockCatalog([
+      {
+        serverName: "cursor-server",
+        toolName: "query_db",
+        qualifiedName: "cursor-server.query_db",
+        description: "Execute SQL queries against the project database",
+        enabled: true,
+        source: "cursor",
+        sources: ["cursor"],
+        visibility: "foreign",
+        origin: "inline-schema",
+      },
+    ]);
+
+    const prompt = "profile the slow query on the project database";
+
+    let capturedPrompt = "";
+    const originalOptimize =
+      mockOptimizer.optimizeStructured.bind(mockOptimizer);
+    mockOptimizer.optimizeStructured = async (promptText, options) => {
+      capturedPrompt = promptText;
+      return originalOptimize(promptText, options);
+    };
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt, command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.ok(
+      !capturedPrompt.includes("Available MCP Tools"),
+      "foreign tools must not be injected by default (F2)",
+    );
+    assert.ok(
+      !mockStream.output.some((s: string) => s.includes("MCP Tools")),
+      "no MCP tool tags may render for a foreign-only catalog",
+    );
+  });
+
+  test("includeForeignServers opt-in ⇒ foreign tool injected and annotated", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockConfig.setMcpProvisioningOptions({ includeForeignServers: true });
+    mockMcpRegistry.setMockCatalog([
+      {
+        serverName: "cursor-server",
+        toolName: "query_db",
+        qualifiedName: "cursor-server.query_db",
+        description: "Execute SQL queries against the project database",
+        enabled: true,
+        source: "cursor",
+        sources: ["cursor"],
+        visibility: "foreign",
+        origin: "inline-schema",
+      },
+    ]);
+
+    const prompt = "profile the slow query on the project database";
+
+    let capturedPrompt = "";
+    const originalOptimize =
+      mockOptimizer.optimizeStructured.bind(mockOptimizer);
+    mockOptimizer.optimizeStructured = async (promptText, options) => {
+      capturedPrompt = promptText;
+      return originalOptimize(promptText, options);
+    };
+
+    const mockStream = {
+      output: [] as string[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (_: any) {},
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt, command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.ok(
+      capturedPrompt.includes("cursor-server.query_db"),
+      "opt-in foreign tool is injected into the optimizer prompt",
+    );
+    assert.ok(
+      capturedPrompt.includes("other-editor tool"),
+      "foreign tool carries the only-use-if-available annotation",
+    );
+    assert.ok(
+      mockStream.output.some((s: string) => s.includes("(other-editor)")),
+      "rendered MCP tags are source-annotated",
+    );
+  });
+
   test("empty MCP catalog ⇒ optimizer prompt identical to Enhancements 1–3 only", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
