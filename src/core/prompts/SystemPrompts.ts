@@ -1,3 +1,14 @@
+/**
+ * Version stamp of the optimizer prompt below.
+ *
+ * MUST be bumped manually on ANY change to SYSTEM_PROMPTS.OPTIMIZATION (or any
+ * other prompt text that shapes the optimizer's output): it is an input to the
+ * response-cache key (PromptResponseCache), so a bump guarantees that every
+ * cached response is invalidated instead of serving text produced by an older
+ * prompt.
+ */
+export const OPTIMIZER_PROMPT_VERSION = "1";
+
 export const SYSTEM_PROMPTS = {
   /**
    * OPTIMIZATION_V2 — Tool-aware prompt rewriting.

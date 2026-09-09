@@ -11,11 +11,13 @@ import {
   MockFileSystem,
   MockMCPToolRegistry,
   MockPromptFeedbackLog,
+  MockPromptResponseCache,
 } from "../../mocks/MockServices";
 import { MockLogger } from "../../mocks/MockLogger";
 import { WorkspaceContextGatherer } from "../../../core/services/WorkspaceContextGatherer";
 import { ReferenceResolver } from "../../../core/services/ReferenceResolver";
 import { classifyTools } from "../../../core/services/ToolAffinityClassifier";
+import { computeResponseCacheKey } from "../../../core/services/PromptResponseCache";
 
 suite("RealtimeModeStrategy Test Suite", () => {
   let strategy: RealtimeModeStrategy;
@@ -26,6 +28,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
   let mockLogger: MockLogger;
   let mockMcpRegistry: MockMCPToolRegistry;
   let mockFeedbackLog: MockPromptFeedbackLog;
+  let mockResponseCache: MockPromptResponseCache;
   let contextGatherer: WorkspaceContextGatherer;
   let referenceResolver: ReferenceResolver;
 
@@ -37,6 +40,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
     mockLogger = new MockLogger();
     mockMcpRegistry = new MockMCPToolRegistry();
     mockFeedbackLog = new MockPromptFeedbackLog();
+    mockResponseCache = new MockPromptResponseCache();
 
     contextGatherer = new WorkspaceContextGatherer(mockLogger);
     referenceResolver = new ReferenceResolver(mockFileSystem, mockLogger);
@@ -50,6 +54,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
       referenceResolver,
       mockMcpRegistry as any,
       mockFeedbackLog as any,
+      mockResponseCache as any,
     );
   });
 
@@ -609,5 +614,243 @@ suite("RealtimeModeStrategy Test Suite", () => {
       mockStream.buttons.every((b: any) => b.arguments.length <= 2),
       "no [text, feedbackId, outcome] triples when capture is disabled",
     );
+  });
+
+  // ── Phase E2: optimizer response cache in front of the LLM call ────────────
+
+  test("cache hit ⇒ optimizer LLM skipped and rendered text is the stored text byte-for-byte", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+
+    const prompt = "profile the slow query on the project database";
+    const stored = "CACHED **Task**\nProfile the query with db-mcp.query";
+    mockResponseCache.setEntry(prompt, "mock-fingerprint", "", {
+      enhancedPrompt: stored,
+      intent: "edit",
+      createdAt: Date.now(),
+      hitCount: 3,
+    });
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt, command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.strictEqual(
+      mockOptimizer.optimizeStructuredCalled,
+      0,
+      "the optimizer LLM must be skipped entirely on a cache hit",
+    );
+    // Byte-for-byte: the rendered chunk is the stored text under the exact
+    // quote transform the renderer applies.
+    const expectedChunk = `> ${stored.replace(/\n/g, "\n> ")}\n\n`;
+    assert.ok(
+      mockStream.output.some((s: string) => s === expectedChunk),
+      "rendered prompt chunk is byte-identical to the stored text",
+    );
+    assert.ok(
+      mockStream.output.some((s: string) => s.includes("Detected Intent: EDIT")),
+      "the stored intent is used verbatim (not the optimizer default)",
+    );
+
+    // The pending feedback record from E1 still runs — it records what was
+    // actually rendered, cache hit or not.
+    assert.strictEqual(mockFeedbackLog.createPendingCalls.length, 1);
+    assert.strictEqual(
+      (mockFeedbackLog.createPendingCalls[0] as any).enhancedPrompt,
+      stored,
+      "feedback record captures the cached text",
+    );
+
+    // Buttons apply the cached text verbatim.
+    const runPromptButtons = mockStream.buttons.filter(
+      (b: any) => b.command === "promptBooster.runPrompt",
+    );
+    assert.ok(
+      runPromptButtons.some((b: any) => b.arguments[0] === stored),
+      "accept button carries the stored text verbatim",
+    );
+
+    // A hit is not re-stored — put only fires for fresh optimizer output.
+    assert.strictEqual(mockResponseCache.putCalls.length, 0);
+  });
+
+  test("cache miss ⇒ optimizer called and result stored under the real key", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+
+    const prompt = "profile the slow query on the project database";
+
+    let capturedPrompt = "";
+    const originalOptimize =
+      mockOptimizer.optimizeStructured.bind(mockOptimizer);
+    mockOptimizer.optimizeStructured = async (promptText, options) => {
+      capturedPrompt = promptText;
+      return originalOptimize(promptText, options);
+    };
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt, command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.strictEqual(mockResponseCache.getCalls.length, 1, "lookup happened");
+    assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 1);
+    assert.strictEqual(mockResponseCache.putCalls.length, 1, "fresh output stored");
+
+    const put = mockResponseCache.putCalls[0];
+    assert.strictEqual(
+      put.key,
+      computeResponseCacheKey(prompt, "mock-fingerprint", ""),
+      "stored under normalized raw prompt + catalog fingerprint + empty few-shot stamp",
+    );
+    assert.strictEqual(put.enhancedPrompt, `Structured: ${capturedPrompt}`);
+    assert.strictEqual(put.intent, "ask");
+  });
+
+  test("throwing response cache ⇒ enhance still renders", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockResponseCache.failGet = true;
+    mockResponseCache.failPut = true;
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt: "Test", command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+
+    await strategy.execute(context);
+
+    assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 1);
+    assert.ok(
+      mockStream.output.some((s: string) => s.includes("Optimized Prompt")),
+      "the enhance must still render when the cache throws",
+    );
+    assert.ok(mockStream.buttons.length > 0, "buttons still render");
+  });
+
+  test("cache empty vs disabled ⇒ identical rendered output (no-regression)", async () => {
+    // With nothing stored, the cached path IS the pre-E2 path (lookup misses,
+    // optimizer runs, render). A disabled cache must be indistinguishable.
+    const runEnhance = async (cacheEnabled: boolean) => {
+      const optimizer = new MockOptimizationService();
+      const config = new MockConfigurationManager();
+      config.setAutoOptimize(true);
+      config.setPermission(true);
+      config.setFeedbackLearningOptions({ cacheEnabled });
+      const responseCache = new MockPromptResponseCache();
+      responseCache.enabled = cacheEnabled;
+      const feedbackLog = new MockPromptFeedbackLog();
+      const localStrategy = new RealtimeModeStrategy(
+        optimizer,
+        new MockLanguageModelProvider(),
+        config,
+        mockLogger,
+        contextGatherer,
+        referenceResolver,
+        mockMcpRegistry as any,
+        feedbackLog as any,
+        responseCache as any,
+      );
+
+      const mockStream = {
+        output: [] as string[],
+        buttons: [] as any[],
+        markdown: function (value: string) {
+          this.output.push(value);
+        },
+        button: function (btn: any) {
+          this.buttons.push(btn);
+        },
+        progress: function (_: string) {},
+      };
+      const context: any = {
+        metadata: {
+          stream: mockStream,
+          request: {
+            prompt: "Summarize the authentication flow",
+            command: "",
+            references: [],
+            toolCalls: [],
+          },
+          token: new vscode.CancellationTokenSource().token,
+        },
+      };
+
+      await localStrategy.execute(context);
+      return { optimizer, feedbackLog, mockStream, responseCache };
+    };
+
+    const empty = await runEnhance(true); // enabled cache, nothing stored
+    const disabled = await runEnhance(false); // disabled in config AND mock
+
+    assert.strictEqual(empty.optimizer.optimizeStructuredCalled, 1);
+    assert.strictEqual(disabled.optimizer.optimizeStructuredCalled, 1);
+    // Disabled mock still records the attempted put but stores nothing.
+    assert.strictEqual(disabled.responseCache.putCalls.length, 1);
+    assert.strictEqual(
+      disabled.responseCache.entryCount,
+      0,
+      "disabled cache stores no entry",
+    );
+
+    assert.strictEqual(
+      disabled.mockStream.output.join(""),
+      empty.mockStream.output.join(""),
+      "disabled cache renders byte-identically to the empty-cache (pre-E2) path",
+    );
+    assert.deepStrictEqual(
+      disabled.mockStream.buttons.map((b: any) => b.arguments),
+      empty.mockStream.buttons.map((b: any) => b.arguments),
+      "button arguments identical",
+    );
+    assert.strictEqual(empty.feedbackLog.createPendingCalls.length, 1);
+    assert.strictEqual(disabled.feedbackLog.createPendingCalls.length, 1);
   });
 });

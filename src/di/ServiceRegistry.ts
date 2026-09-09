@@ -25,6 +25,7 @@ import { MCPToolRegistry } from "../core/services/MCPToolRegistry";
 import { McpToolIndexStore } from "../core/services/McpToolIndexStore";
 import { McpServerProbe } from "../core/services/McpServerProbe";
 import { PromptFeedbackLog } from "../core/services/PromptFeedbackLog";
+import { PromptResponseCache } from "../core/services/PromptResponseCache";
 
 // Strategies
 import { ManualModeStrategy } from "../core/strategies/ManualModeStrategy";
@@ -197,6 +198,14 @@ export class ServiceRegistry {
         c.resolve<ILogger>(TYPES.Logger),
       );
     });
+
+    container.registerSingleton(TYPES.PromptResponseCache, (c) => {
+      return new PromptResponseCache(
+        c.resolve<IStateRepository>(TYPES.StateRepository),
+        c.resolve<IConfigurationManager>(TYPES.ConfigurationManager),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
   }
 
   /**
@@ -222,6 +231,7 @@ export class ServiceRegistry {
         c.resolve<ReferenceResolver>(TYPES.ReferenceResolver),
         c.resolve<MCPToolRegistry>(TYPES.MCPToolRegistry),
         c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
+        c.resolve<PromptResponseCache>(TYPES.PromptResponseCache),
       );
     });
 

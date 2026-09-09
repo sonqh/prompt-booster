@@ -13,6 +13,8 @@ import {
   OptimizationOptions,
   PromptResult,
 } from "../../shared/types/PromptResult";
+import { computeResponseCacheKey } from "../../core/services/PromptResponseCache";
+import { CachedPromptResponse } from "../../shared/types/PromptFeedbackTypes";
 
 /**
  * Mock Configuration Manager
@@ -317,6 +319,86 @@ export class MockPromptFeedbackLog {
       observedToolCallRecords: 0,
       observedToolCallPrecision: null,
     };
+  }
+}
+
+/**
+ * Mock Prompt Response Cache — mirrors IPromptResponseCache for strategy
+ * tests: seedable entries (keyed by the real key formula so lookups stay in
+ * sync with what the strategy computes), call recording, an `enabled` flag
+ * mimicking `promptBooster.cache.enabled: false`, and throwing flags to prove
+ * the strategy's failure posture (a broken cache never breaks the enhance).
+ */
+export class MockPromptResponseCache {
+  public computeKeyCalls: Array<{
+    rawPrompt: string;
+    catalogFingerprint: string;
+    fewShotStamp: string;
+  }> = [];
+  public getCalls: string[] = [];
+  public putCalls: Array<{
+    key: string;
+    enhancedPrompt: string;
+    intent: "ask" | "edit";
+  }> = [];
+  /** When true, get/put throw (failure-posture tests). */
+  public failGet = false;
+  public failPut = false;
+  /** Mimics `promptBooster.cache.enabled: false` — always miss, put no-op. */
+  public enabled = true;
+  private entries = new Map<string, CachedPromptResponse>();
+
+  /** Number of currently stored entries (disabled puts store nothing). */
+  get entryCount(): number {
+    return this.entries.size;
+  }
+
+  computeKey(
+    rawPrompt: string,
+    catalogFingerprint: string,
+    fewShotStamp: string,
+  ): string {
+    this.computeKeyCalls.push({ rawPrompt, catalogFingerprint, fewShotStamp });
+    // Delegate to the real pure key formula so seeded entries match what the
+    // strategy will actually compute for the same inputs.
+    return computeResponseCacheKey(rawPrompt, catalogFingerprint, fewShotStamp);
+  }
+
+  /** Seed an entry exactly the way the strategy will look it up. */
+  setEntry(
+    rawPrompt: string,
+    catalogFingerprint: string,
+    fewShotStamp: string,
+    response: CachedPromptResponse,
+  ): void {
+    this.entries.set(
+      computeResponseCacheKey(rawPrompt, catalogFingerprint, fewShotStamp),
+      { ...response },
+    );
+  }
+
+  async get(key: string): Promise<CachedPromptResponse | undefined> {
+    if (this.failGet) throw new Error("mock response-cache get failure");
+    this.getCalls.push(key);
+    if (!this.enabled) return undefined;
+    const hit = this.entries.get(key);
+    return hit ? { ...hit } : undefined;
+  }
+
+  put(key: string, enhancedPrompt: string, intent: "ask" | "edit"): void {
+    if (this.failPut) throw new Error("mock response-cache put failure");
+    this.putCalls.push({ key, enhancedPrompt, intent });
+    if (!this.enabled) return;
+    this.entries.set(key, {
+      enhancedPrompt,
+      intent,
+      createdAt: Date.now(),
+      hitCount: 0,
+    });
+  }
+
+  getCacheStats(): { hits: number; misses: number; hitRate: number | null } {
+    return { hits: 0, misses: 0, hitRate: null };
   }
 }
 

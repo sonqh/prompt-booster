@@ -25,6 +25,7 @@ export const TYPES = {
   McpToolIndexStore: Symbol.for("IMcpToolIndexStore"),
   McpServerProbe: Symbol.for("IMcpServerProbe"),
   PromptFeedbackLog: Symbol.for("IPromptFeedbackLog"),
+  PromptResponseCache: Symbol.for("IPromptResponseCache"),
 
   // Strategies
   ManualModeStrategy: Symbol.for("ManualModeStrategy"),

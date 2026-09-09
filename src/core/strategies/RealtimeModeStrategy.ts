@@ -15,7 +15,11 @@ import { IPromptOptimizationService } from "../services/IPromptOptimizationServi
 import { ILanguageModelProvider } from "../models/ILanguageModelProvider";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import { ILogger } from "../../shared/interfaces/ILogger";
-import { ModeExecutionContext } from "../../shared/types/PromptResult";
+import {
+  ModeExecutionContext,
+  OptimizationOptions,
+  PromptResult,
+} from "../../shared/types/PromptResult";
 import { OperationMode } from "../../shared/types/OperationMode";
 import { WorkspaceContextGatherer } from "../services/WorkspaceContextGatherer";
 import { ReferenceResolver } from "../services/ReferenceResolver";
@@ -25,6 +29,8 @@ import {
   IPromptFeedbackLog,
   PendingFeedbackInput,
 } from "../services/PromptFeedbackLog";
+import { IPromptResponseCache } from "../services/PromptResponseCache";
+import { CachedPromptResponse } from "../../shared/types/PromptFeedbackTypes";
 
 export class RealtimeModeStrategy implements IModeStrategy {
   private readonly timeoutMs = 20000; // 20 second timeout
@@ -38,6 +44,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     private referenceResolver: ReferenceResolver,
     private mcpToolRegistry: MCPToolRegistry,
     private promptFeedbackLog: IPromptFeedbackLog,
+    private responseCache: IPromptResponseCache,
   ) {}
 
   canHandle(mode: OperationMode): boolean {
@@ -99,7 +106,10 @@ export class RealtimeModeStrategy implements IModeStrategy {
       stream.progress("Optimizing your prompt...");
 
       const result = await Promise.race([
-        this.optimizer.optimizeStructured(promptWithContext, {
+        // Phase E2: the response cache sits immediately in front of the
+        // optimizer LLM call, inside the timeout race — a hit skips exactly
+        // one round-trip and returns the stored text verbatim.
+        this.optimizeWithResponseCache(request.prompt, promptWithContext, {
           model,
           cancellationToken: token,
         }),
@@ -248,6 +258,81 @@ export class RealtimeModeStrategy implements IModeStrategy {
       )
       .filter((name): name is string => !!name);
     return names.length > 0 ? names : undefined;
+  }
+
+  /**
+   * Phase E2: consult the response cache immediately in front of the optimizer
+   * LLM call. A hit returns the stored text verbatim (the LLM is skipped
+   * entirely); a miss, stale entry, corrupt state, disabled cache, or any
+   * cache failure falls through to the normal path and stores the result
+   * fire-and-forget. Cache behavior is never observable as an enhance failure.
+   */
+  private async optimizeWithResponseCache(
+    rawPrompt: string,
+    promptWithContext: string,
+    options: OptimizationOptions,
+  ): Promise<PromptResult | undefined> {
+    const cached = await this.tryGetCachedResponse(rawPrompt);
+    if (cached) {
+      return { enhancedPrompt: cached.enhancedPrompt, intent: cached.intent };
+    }
+    const result = await this.optimizer.optimizeStructured(
+      promptWithContext,
+      options,
+    );
+    if (result) {
+      this.tryPutCachedResponse(rawPrompt, result.enhancedPrompt, result.intent);
+    }
+    return result;
+  }
+
+  /** Cache lookup wrapped so any failure degrades to a miss. */
+  private async tryGetCachedResponse(
+    rawPrompt: string,
+  ): Promise<CachedPromptResponse | undefined> {
+    if (!this.responseCache) return undefined;
+    try {
+      const key = this.computeCacheKey(rawPrompt);
+      return await this.responseCache.get(key);
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: response-cache lookup failed — falling through to the optimizer (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return undefined;
+    }
+  }
+
+  /** Fire-and-forget cache store wrapped so any failure is only logged. */
+  private tryPutCachedResponse(
+    rawPrompt: string,
+    enhancedPrompt: string,
+    intent: "ask" | "edit",
+  ): void {
+    if (!this.responseCache) return;
+    try {
+      this.responseCache.put(this.computeCacheKey(rawPrompt), enhancedPrompt, intent);
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: response-cache store failed — enhance unaffected (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+    }
+  }
+
+  /**
+   * Cache key: normalized raw prompt + catalog fingerprint + optimizer-prompt
+   * version (+ few-shot stamp once Phase E3 wires the real one).
+   */
+  private computeCacheKey(rawPrompt: string): string {
+    // fewShotStamp is the empty string until Phase E3 wires the real stamp.
+    return this.responseCache.computeKey(
+      rawPrompt,
+      this.mcpToolRegistry.getCatalogFingerprint(),
+      "",
+    );
   }
 
   /** Create the pending feedback record; never throws across the enhance. */
