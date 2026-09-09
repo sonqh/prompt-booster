@@ -1,17 +1,19 @@
 # PromptBooster
 
-A VS Code extension that enhances and optimizes your prompts using AI before sending to GitHub Copilot.
+A VS Code extension that enhances and optimizes your prompts using AI before sending to GitHub Copilot — and makes those prompts **tool-aware**: it discovers which MCP tools your environment actually offers and weaves the right tool references directly into the prompt, so the agent reaches for the right tool on the first turn instead of probing.
 
 ## 🎯 Features
 
 PromptBooster automatically detects your context to provide the best optimization experience:
 - **Chat**: Type `@PromptBooster` to instantly optimize your chat prompt.
 - **Editor**: Right-click any `.prompt.md` file to boost it.
+- **Tool-aware** (v2): discovers your MCP tool landscape, scores tools against your prompt, and injects the winners inline — with a response cache and an acceptance-based feedback loop that learns from what you actually use.
 
 ### ✅ Real-time Optimization (Chat)
 
 - **Context-Aware**: Reads the content of files you reference (e.g., `#file:utils.ts`) to give the AI crucial context.
 - **Smart Intent Detection**: Automatically detects if you are *Asking* or *Editing*.
+- **Tool-Aware Rewrites**: MCP tool references are woven inline into the optimized prompt.
 - **Dynamic Actions**:
   - `$(sparkle) Apply to Chat`: Copies the optimized prompt to Copilot input.
   - `$(new-file) Refine in File`: Creates a `.prompt.md` file for manual editing.
@@ -22,6 +24,26 @@ PromptBooster automatically detects your context to provide the best optimizatio
 - **Version Control**: Save your best prompts to `.github/prompts/`.
 - **Right-click Boost**: Enhance your drafts with one click.
 - **Process Prompt File**: Execute your perfected prompt directly to Copilot via the Status Bar or Command Palette.
+
+## 🔌 MCP-Aware Tool Provisioning (v2)
+
+PromptBooster discovers the tools your environment offers through a **discovery waterfall** — each stage is a fallback for the previous one, so the optimizer always has the best available catalog without ever blocking your prompt:
+
+```mermaid
+flowchart LR
+    A[Runtime API<br/>vscode.lm.tools] -->|unavailable| B[Probe cache<br/>TTL-bounded]
+    B -->|stale| C[Manual tool index]
+    C -->|missing server| D[Inline schema<br/>from mcp.json]
+    D -->|no tools declared| E[Server stub<br/>name + command only]
+```
+
+- **Scorer v2**: a zero-LLM, zero-latency classifier scores every discovered tool against your prompt (token overlap with length normalization, whole-word name bonuses, hard cap of 5 injected tools). Only precision-qualified winners reach the optimizer.
+- **Injection gating**: tool descriptions are third-party, untrusted input — they are sanitized (control characters stripped, 200-char cap, ~1,500-char total budget) before entering the optimizer prompt.
+- **Optimizer response cache**: identical prompts within the TTL skip the LLM round-trip entirely (workspace state, LRU-bounded).
+- **Feedback loop**: your decisions (accept / edit / reject) are recorded in workspace-local state. Only confirmed positives are ever promoted; the feedback report shows the full funnel.
+- **Learning (opt-in)**: with `learning.fewShotFromFeedback` enabled, prompts you explicitly accepted become few-shot examples for future optimizations in that workspace. Off by default — it re-sends prompt text to the model provider.
+
+**Privacy-first defaults**: server probing (background-launching your MCP servers to list their tools) is strictly opt-in; foreign servers (other editors' configs) are off by default; feedback records never write prompt text to a committable file.
 
 ## 🚀 Quick Start
 
@@ -48,73 +70,100 @@ PromptBooster automatically detects your context to provide the best optimizatio
 4. The file updates with a professional, structured prompt.
 5. Click the `Run` CodeLens or "Process Prompt" in the status bar to send it to Copilot.
 
-## 📦 Building & Packaging
-
-To build the extension for distribution:
-
-```bash
-npm run package
-```
-
-This generates a `.vsix` file in the `dist/` folder, which is automatically excluded from git. You can then:
-
-- **Test locally**: Install the VSIX manually in VS Code
-- **Publish**: Use `vsce publish` to publish to the VS Code Marketplace
-- **Share**: Distribute the VSIX file to others for manual installation
-
 ## ⚙️ Configuration
 
-Configure in VS Code Settings (`Cmd+,`):
+Configure in VS Code Settings (`Cmd+,`). All settings live under the `promptBooster.` prefix.
 
-| Setting               | Default         | Options                           | Description                          |
-| --------------------- | --------------- | --------------------------------- | ------------------------------------ |
-| `operationMode`       | manual          | manual, realtime, file            | Current operation mode               |
-| `autoOptimize`        | false           | true, false                       | Auto-optimize in realtime/file modes |
-| `showPreview`         | true            | true, false                       | Show preview before submitting       |
-| `fileOutputDirectory` | .github/prompts | any valid path                    | Where to save generated files        |
-| `fileNamingPattern`   | prompt          | timestamp, prompt, custom         | File naming strategy                 |
-| `modelPreference`     | gpt-4.1         | gpt-4.1, gpt-4o, claude-haiku-4.5 | Preferred AI model                   |
+### General
+
+| Setting                   | Default          | Options                           | Description                            |
+| ------------------------- | ---------------- | --------------------------------- | -------------------------------------- |
+| `operationMode`           | manual           | manual, realtime, file            | Current operation mode                 |
+| `simplifiedContextMode`   | true             | true, false                       | Chat always uses Realtime mode, Editor uses Manual mode |
+| `autoOptimize`            | false            | true, false                       | Auto-optimize in realtime/file modes   |
+| `showPreview`             | true             | true, false                       | Show preview before submitting         |
+| `fileOutputDirectory`     | .github/prompts  | any valid path                    | Where to save generated files          |
+| `fileNamingPattern`       | prompt           | timestamp, prompt, custom         | File naming strategy                   |
+| `modelPreference`         | claude-haiku-4.5 | gpt-4.1, gpt-4o, claude-haiku-4.5 | Preferred AI model                     |
+
+### MCP Tool Discovery
+
+| Setting                        | Default | Description                                                                                  |
+| ------------------------------ | ------- | -------------------------------------------------------------------------------------------- |
+| `mcp.probeServers`             | false   | **Opt in**: PromptBooster may launch your configured MCP servers in the background (stdio, hard 6s timeout) to discover their real tool lists. Runs only on activation, config change, or via the *Refresh MCP Tool Index* command — never while enhancing a prompt. |
+| `mcp.includeForeignServers`    | false   | Include tools discovered from other editors' MCP configs (Claude Desktop, Cursor, Cline). They are annotated as *other-editor tool — only use if available here* because the Copilot agent may not be able to execute them. |
+| `mcp.cacheTtlMinutes`          | 10      | How long the discovered MCP tool catalog stays trusted before it is revalidated in the background (stale results are served immediately). |
+
+### Feedback & Learning
+
+| Setting                          | Default | Description                                                                                   |
+| -------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `feedback.enabled`               | true    | Record prompt-enhancement decisions (accepted / rejected / edited) in workspace-local state to power the feedback report. Never writes prompt text to a committable file. |
+| `feedback.historyLimit`          | 200     | How many resolved feedback records are kept (oldest dropped first).                            |
+| `learning.fewShotFromFeedback`   | false   | **Opt in**: send prompts you explicitly accepted back to the model provider as few-shot examples when enhancing future prompts in this workspace. This shares prompt text with the model provider again — off by default. |
+| `learning.maxFewShotExamples`    | 5       | Maximum number of few-shot examples derived from accepted feedback.                            |
+| `learning.fewShotCharBudget`     | 2000    | Total character budget for the few-shot example block appended to the optimizer input.         |
+
+### Optimizer Response Cache
+
+| Setting              | Default | Description                                                                     |
+| -------------------- | ------- | ------------------------------------------------------------------------------- |
+| `cache.enabled`      | true    | Cache the optimizer's LLM output per prompt (workspace state). Identical prompts within the TTL skip the model round-trip; everything deterministic always re-runs. |
+| `cache.ttlDays`      | 7       | How long a cached optimizer response stays valid.                                |
+| `cache.maxEntries`   | 200     | Maximum number of cached optimizer responses (least recently used evicted first). |
 
 ## 📋 Commands
 
-Access via Command Palette (`Cmd+Shift+P`) or use npm scripts:
-
-| Script                | Purpose                         |
-| --------------------- | ------------------------------- |
-| `npm run compile`     | Compile TypeScript to JavaScript |
-| `npm run watch`       | Watch mode for development      |
-| `npm run lint`        | Run ESLint checks               |
-| `npm run test`        | Run test suite                  |
-| `npm run package`     | Build VSIX in `dist/` folder    |
-
-### VS Code Commands
-
 Access via Command Palette (`Cmd+Shift+P`):
 
-- **PromptBooster: Boost This Prompt** - Enhance `.prompt.md` file (Manual Mode)
-- **PromptBooster: Switch Operation Mode** - Change between modes
-- **PromptBooster: Toggle Auto-Optimization** - Turn auto-optimization on/off
-- **PromptBooster: Switch AI Model** - Choose which AI model to use
-- **PromptBooster: Configure Permissions** - Manage interception permissions
-- **PromptBooster: Process Prompt File** - Process generated `.prompt.md` file (File Mode)
-- **PromptBooster: Test File Generation** - Test file generation feature
-- **PromptBooster: Test Realtime Mode** - Test realtime mode integration
+**Workflow**
 
-## 🛠️ Requirements
+- **PromptBooster: Boost This Prompt** — Enhance `.prompt.md` file (Manual Mode)
+- **PromptBooster: Switch Operation Mode** — Change between modes
+- **PromptBooster: Toggle Auto-Optimization** — Turn auto-optimization on/off
+- **PromptBooster: Switch AI Model** — Choose which AI model to use
+- **PromptBooster: Configure Permissions** — Manage interception permissions
+- **PromptBooster: Process Prompt File** — Process generated `.prompt.md` file (File Mode)
+- **PromptBooster: Test File Generation** — Test file generation feature
+- **PromptBooster: Test Realtime Mode** — Test realtime mode integration
 
-### Runtime
+**MCP & Feedback (v2)**
 
-- **VS Code**: 1.99.0 or higher
-- **GitHub Copilot**: Active subscription (for Language Model API access)
-- **OS**: macOS, Windows, or Linux
+- **PromptBooster: Refresh MCP Tool Index** — Re-run MCP discovery now (the only manual probe trigger)
+- **PromptBooster: Use This Prompt Version** — Adopt a version from the diff view as your final prompt
+- **PromptBooster: Show Feedback Report** — Funnel, acceptance, retention, and cache hit-rate report
+- **PromptBooster: Export MCP Golden-Set Candidates** — Export retained references as a JSON golden-set file for offline evaluation
 
-### Development & Building
+## 🛠️ Development
 
-- **Node.js**: 20.x or higher
-- **npm**: 8.x or higher
-- **VSCE**: Automatically installed with dev dependencies (for `npm run package`)
+```bash
+npm run compile   # TypeScript → out/
+npm run watch     # Watch mode
+npm run lint      # ESLint (src, TypeScript)
+npm test          # 155 unit tests via @vscode/test-electron
+npm run package   # Build VSIX into dist/
+```
+
+Architecture and conventions live in [AGENTS.md](AGENTS.md):
+
+- **Layered DI architecture** — `core` (host-free mechanism) / `infrastructure` (host adapters) / `presentation` (commands & UI) / `shared` (interfaces & types), wired by symbol-keyed DI in `src/di/`.
+- **Layering rule** — `src/core/**` never imports `vscode`; host capabilities reach core through ports in `src/shared/interfaces/`.
+- Diagrams: [docs/architecture_diagrams.md](docs/architecture_diagrams.md) · v2 design: [docs/plans/mcp-aware-tool-provisioning-v2.md](docs/plans/mcp-aware-tool-provisioning-v2.md)
+
+## 🗺️ Roadmap
+
+**Claude Code plugin port** — design approved 2026-09-09, implementation next. The same mechanism as a Claude Code plugin: a `/boost` skill for the rewrite UX, `PostToolUse` hook telemetry as *direct* per-tool ground truth (stronger labels than any acceptance button), file-backed cache/learning stores, and the shared `src/core` reused behind Node adapters. See [docs/plans/claude-code-plugin-design.md](docs/plans/claude-code-plugin-design.md).
 
 ## 🎯 What's Implemented
+
+### 🔌 MCP-Aware Tool Provisioning (v2)
+
+- Discovery waterfall: runtime API → probe cache → manual index → inline schema → server stub
+- Scorer v2 — precision-focused, deterministic tie-breaking, hard cap of 5 injected tools
+- Sanitized, budget-capped injection of untrusted tool descriptions
+- Optimizer response cache (LRU + TTL, workspace state)
+- Acceptance-based feedback capture and report; golden-set candidate export
+- Opt-in few-shot learning from confirmed positives
 
 ### 🔧 Manual Mode
 
@@ -128,7 +177,7 @@ Access via Command Palette (`Cmd+Shift+P`):
 
 - Chat participant integration (`@PromptBooster` in Copilot chat)
 - Automatic prompt interception and enhancement
-- **Smart Intent Detection** - Distinguishes between "ask" and "edit" intents
+- **Smart Intent Detection** — distinguishes between "ask" and "edit" intents
 - Dynamic context-aware button suggestions
 - Structured prompt format with Task/Context/Requirements/Output sections
 - Chat reference support (`#selection`, `#file`, `#editor`)
@@ -154,6 +203,7 @@ Access via Command Palette (`Cmd+Shift+P`):
 - Dependency injection container for service orchestration
 - Robust error handling and logging
 - Full extension API compliance
+- 155 unit tests across core services
 
 ## 🚀 How It Works
 
@@ -214,6 +264,7 @@ flowchart TD
 4. **Check the logs**: `View → Output → PromptBooster` shows what's happening
 5. **Try different models**: Use "Switch AI Model" to experiment
 6. **Edit before processing**: File mode gives full control
+7. **Watch the feedback report**: "Show Feedback Report" shows which enhancements you actually keep
 
 ### When to Use Each Mode
 
@@ -233,7 +284,7 @@ flowchart TD
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/sonquach/prompt-buster)
+- [GitHub Repository](https://github.com/sonqh/prompt-booster)
 - [GitHub Copilot Extension](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot)
 - [VS Code Extension API](https://code.visualstudio.com/api)
 - [Language Model API Docs](https://code.visualstudio.com/api/extension-guides/language-model)
@@ -271,6 +322,13 @@ MIT License - Created by Son Quach
 - Verify write permissions in workspace
 - Check Output channel for detailed errors
 
+### MCP tools not appearing in optimized prompts
+
+- Run **PromptBooster: Refresh MCP Tool Index**, then check the Output channel for discovery results
+- Probing is opt-in — enable `mcp.probeServers` if you want real tool lists from servers that declare no inline schema
+- Tools from other editors' configs require `mcp.includeForeignServers`
+- The scorer only injects precision-qualified tools; a tool that loosely matches your prompt is deliberately left out
+
 ### Optimization timeout
 
 - Default timeout is 10 seconds
@@ -287,7 +345,7 @@ MIT License - Created by Son Quach
 
 ## 🙋 Support
 
-- Open an issue on [GitHub](https://github.com/sonquach/prompt-buster/issues)
+- Open an issue on [GitHub](https://github.com/sonqh/prompt-booster/issues)
 - Review [CHANGELOG.md](CHANGELOG.md) for recent changes
 
 ---
