@@ -1,5 +1,10 @@
 # PromptBooster Architecture Diagrams
 
+> **Note:** the diagrams below predate the MCP-aware tool provisioning work
+> (Enhancement 4). For the current discovery waterfall, feedback/cache/learning
+> loop, and port/adapter layering, see
+> [plans/mcp-aware-tool-provisioning-v2.md](plans/mcp-aware-tool-provisioning-v2.md).
+
 ## Current Architecture Overview
 
 ```mermaid

@@ -1,16 +1,42 @@
 /**
  * Realtime Mode Strategy
- * Intercepts chat prompts and shows preview with interactive buttons
+ *
+ * Intercepts Copilot Chat prompts and applies all four PromptBooster enhancements:
+ *   1. Tool-Aware Prompt Transformation  (ToolAffinityClassifier)
+ *   2. Rich Workspace Context Gathering  (WorkspaceContextGatherer)
+ *   3. VS Code Reference Resolution      (ReferenceResolver)
+ *   4. MCP-Aware Tool Provisioning       (MCPToolRegistry)
+ *
+ * Shows an interactive preview with Apply / Refine / Use Original buttons.
  */
 import * as vscode from "vscode";
 import { IModeStrategy } from "./IModeStrategy";
 import { IPromptOptimizationService } from "../services/IPromptOptimizationService";
 import { ILanguageModelProvider } from "../models/ILanguageModelProvider";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
-import { IFileSystem } from "../../shared/interfaces/IFileSystem";
 import { ILogger } from "../../shared/interfaces/ILogger";
-import { ModeExecutionContext } from "../../shared/types/PromptResult";
+import {
+  ModeExecutionContext,
+  OptimizationOptions,
+  PromptResult,
+} from "../../shared/types/PromptResult";
 import { OperationMode } from "../../shared/types/OperationMode";
+import { WorkspaceContextGatherer } from "../services/WorkspaceContextGatherer";
+import { ReferenceResolver } from "../services/ReferenceResolver";
+import { MCPToolRegistry } from "../services/MCPToolRegistry";
+import { classifyTools, MCPToolDescriptor } from "../services/ToolAffinityClassifier";
+import {
+  IPromptFeedbackLog,
+  PendingFeedbackInput,
+} from "../services/PromptFeedbackLog";
+import { IPromptResponseCache } from "../services/PromptResponseCache";
+import {
+  IPromptLearningStore,
+  FewShotSelectionOptions,
+  computeFewShotStamp,
+  renderFewShotBlock,
+} from "../services/PromptLearningStore";
+import { CachedPromptResponse } from "../../shared/types/PromptFeedbackTypes";
 
 export class RealtimeModeStrategy implements IModeStrategy {
   private readonly timeoutMs = 20000; // 20 second timeout
@@ -19,8 +45,13 @@ export class RealtimeModeStrategy implements IModeStrategy {
     private optimizer: IPromptOptimizationService,
     private modelProvider: ILanguageModelProvider,
     private configManager: IConfigurationManager,
-    private fileSystem: IFileSystem,
     private logger: ILogger,
+    private contextGatherer: WorkspaceContextGatherer,
+    private referenceResolver: ReferenceResolver,
+    private mcpToolRegistry: MCPToolRegistry,
+    private promptFeedbackLog: IPromptFeedbackLog,
+    private responseCache: IPromptResponseCache,
+    private learningStore: IPromptLearningStore,
   ) {}
 
   canHandle(mode: OperationMode): boolean {
@@ -41,10 +72,6 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
     this.logger.log(`Executing Realtime Mode Strategy: ${request.prompt}`);
 
-    // Check if auto-optimize is enabled (legacy check) or if we are in simplified mode
-    // In simplified mode, explicit calls (@PromptBooster) should always run,
-    // but we can still respect the auto-optimize preference for implicit interception if we add that later.
-    // For now, if the handler called us, we run.
     const isSimplified = this.configManager.isSimplifiedContextModeEnabled();
 
     if (!isSimplified && !this.configManager.isAutoOptimizeEnabled()) {
@@ -77,18 +104,19 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
     this.logger.log(`Using model: ${model.name}`);
 
-    // Build prompt with context
-    const promptWithContext = await this.buildPromptWithContext(
-      request.prompt,
-      request,
-    );
+    // Build enriched prompt (Enhancements 1–4)
+    const { promptWithContext, suggestedTools, mcpTools } =
+      await this.buildPromptWithContext(request.prompt, request);
 
     // Optimize with timeout
     try {
       stream.progress("Optimizing your prompt...");
 
       const result = await Promise.race([
-        this.optimizer.optimizeStructured(promptWithContext, {
+        // Phase E2: the response cache sits immediately in front of the
+        // optimizer LLM call, inside the timeout race — a hit skips exactly
+        // one round-trip and returns the stored text verbatim.
+        this.optimizeWithResponseCache(request.prompt, promptWithContext, {
           model,
           cancellationToken: token,
         }),
@@ -101,11 +129,32 @@ export class RealtimeModeStrategy implements IModeStrategy {
       }
 
       if (result) {
+        // Attach classified tool metadata to result for callers
+        result.suggestedTools = suggestedTools;
+        result.mcpTools = mcpTools.map((t) => ({
+          server: t.serverName,
+          tool: t.toolName,
+        }));
+
+        // Phase E1: create the pending feedback record at render time; its id
+        // rides back through the chat buttons. Capture is fire-and-forget —
+        // a failing feedback log must never break the enhance.
+        const feedbackId = this.captureFeedback(
+          request,
+          result.enhancedPrompt,
+          result.intent,
+          suggestedTools,
+          mcpTools,
+        );
+
         this.renderInteractiveResponse(
           request.prompt,
           result.enhancedPrompt,
           result.intent,
+          suggestedTools,
+          mcpTools,
           stream,
+          feedbackId,
         );
       }
     } catch (error) {
@@ -116,41 +165,78 @@ export class RealtimeModeStrategy implements IModeStrategy {
     }
   }
 
+  // ─── Response rendering ────────────────────────────────────────────────────
+
   private renderInteractiveResponse(
     original: string,
     optimized: string,
     intent: "ask" | "edit",
+    suggestedTools: ReturnType<typeof classifyTools>["suggestedTools"],
+    mcpTools: MCPToolDescriptor[],
     stream: vscode.ChatResponseStream,
+    feedbackId?: string,
   ) {
-    stream.markdown(`**Optimized Prompt**\n\n`);
+    stream.markdown("**Optimized Prompt**\n\n");
     stream.markdown(`_Detected Intent: ${intent.toUpperCase()}_\n\n`);
+
+    // Tool tags (built-in)
+    if (suggestedTools.length > 0) {
+      stream.markdown(
+        `_Detected Tools: ${suggestedTools.map((t) => `\`${t}\``).join(" · ")}_\n\n`,
+      );
+    }
+
+    // MCP tool tags (source-annotated: foreign opt-in tools are marked as
+    // coming from another editor's config so the user understands the caveat)
+    if (mcpTools.length > 0) {
+      const tags = mcpTools
+        .map((t) =>
+          t.visibility === "foreign"
+            ? `\`${t.qualifiedName}\` (other-editor)`
+            : `\`${t.qualifiedName}\``,
+        )
+        .join(" · ");
+      stream.markdown(`_MCP Tools: ${tags}_\n\n`);
+    }
+
     stream.markdown(`> ${optimized.replace(/\n/g, "\n> ")}\n\n`);
 
+    // Buttons carry [text, feedbackId, outcome] when feedback capture is on;
+    // the trailing arguments are optional so the commands keep working
+    // without them (graceful no-feedback path, e.g. capture disabled).
     if (intent === "edit") {
       stream.button({
         command: "promptBooster.runPrompt",
         title: "$(sparkle) Apply to Chat",
         tooltip: "Copy optimized prompt to Copilot Chat",
-        arguments: [optimized],
+        arguments: feedbackId
+          ? [optimized, feedbackId, "accept"]
+          : [optimized],
       });
       stream.button({
         command: "promptBooster.createPromptFile",
         title: "$(edit) Refine in File",
         tooltip: "Open in editor for manual refinement",
-        arguments: [original, optimized],
+        arguments: feedbackId
+          ? [original, optimized, feedbackId]
+          : [original, optimized],
       });
     } else {
       stream.button({
         command: "promptBooster.runPrompt",
         title: "$(comment-discussion) Ask in Chat",
         tooltip: "Copy enhanced question to Copilot Chat",
-        arguments: [optimized],
+        arguments: feedbackId
+          ? [optimized, feedbackId, "accept"]
+          : [optimized],
       });
       stream.button({
         command: "promptBooster.createPromptFile",
         title: "$(edit) Edit",
         tooltip: "Edit prompt before sending",
-        arguments: [original, optimized],
+        arguments: feedbackId
+          ? [original, optimized, feedbackId]
+          : [original, optimized],
       });
     }
 
@@ -158,45 +244,258 @@ export class RealtimeModeStrategy implements IModeStrategy {
       command: "promptBooster.runPrompt",
       title: "$(reply) Use Original",
       tooltip: "Revert to original prompt",
-      arguments: [original],
+      arguments: feedbackId ? [original, feedbackId, "reject"] : [original],
     });
   }
+
+  /**
+   * Best-effort observation of the chat request's tool calls. The current
+   * chat API does not reliably expose these — feature-detect and degrade.
+   */
+  private extractObservedToolCalls(
+    request: vscode.ChatRequest,
+  ): string[] | undefined {
+    const calls = (request as { toolCalls?: unknown }).toolCalls;
+    if (!Array.isArray(calls) || calls.length === 0) return undefined;
+    const names = calls
+      .map((call) =>
+        call && typeof call === "object" && "name" in call
+          ? String((call as { name: unknown }).name)
+          : undefined,
+      )
+      .filter((name): name is string => !!name);
+    return names.length > 0 ? names : undefined;
+  }
+
+  /**
+   * Phase E2 + E3: consult the response cache immediately in front of the
+   * optimizer LLM call. A hit returns the stored text verbatim (the LLM is
+   * skipped entirely); a miss, stale entry, corrupt state, disabled cache, or
+   * any cache failure falls through to the normal path and stores the result
+   * fire-and-forget. Cache behavior is never observable as an enhance failure.
+   *
+   * The opt-in few-shot block (Phase E3) is loaded FIRST because the selected
+   * examples are part of the cache key: same examples ⇒ same key (cache hit),
+   * new confirmed feedback ⇒ different stamp ⇒ guaranteed miss.
+   */
+  private async optimizeWithResponseCache(
+    rawPrompt: string,
+    promptWithContext: string,
+    options: OptimizationOptions,
+  ): Promise<PromptResult | undefined> {
+    const fewShot = await this.loadFewShot();
+    const cached = await this.tryGetCachedResponse(rawPrompt, fewShot.stamp);
+    if (cached) {
+      return { enhancedPrompt: cached.enhancedPrompt, intent: cached.intent };
+    }
+    const optimizerInput = fewShot.block
+      ? `${promptWithContext}\n\n${fewShot.block}`
+      : promptWithContext;
+    const result = await this.optimizer.optimizeStructured(
+      optimizerInput,
+      options,
+    );
+    if (result) {
+      this.tryPutCachedResponse(
+        rawPrompt,
+        fewShot.stamp,
+        result.enhancedPrompt,
+        result.intent,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * Phase E3: opt-in few-shot examples from confirmed feedback, appended after
+   * the existing context/catalog/guidance. Off by default
+   * (`promptBooster.learning.fewShotFromFeedback`) — a privacy decision the
+   * user must make explicitly. Any learning-store failure degrades to no
+   * block + empty stamp; the enhance must still run.
+   */
+  private async loadFewShot(): Promise<{ stamp: string; block: string }> {
+    if (!this.learningStore) return { stamp: "", block: "" };
+    try {
+      const options = this.configManager.getFeedbackLearningOptions();
+      if (!options.fewShotFromFeedback) return { stamp: "", block: "" };
+      const selection: FewShotSelectionOptions = {
+        enabled: options.fewShotFromFeedback,
+        maxExamples: options.maxFewShotExamples,
+        charBudget: options.fewShotCharBudget,
+      };
+      const examples = await this.learningStore.getFewShotExamples(selection);
+      if (examples.length === 0) return { stamp: "", block: "" };
+      return {
+        stamp: computeFewShotStamp(examples),
+        block: renderFewShotBlock(examples),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: few-shot selection failed — enhancing without examples (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return { stamp: "", block: "" };
+    }
+  }
+
+  /** Cache lookup wrapped so any failure degrades to a miss. */
+  private async tryGetCachedResponse(
+    rawPrompt: string,
+    fewShotStamp: string,
+  ): Promise<CachedPromptResponse | undefined> {
+    if (!this.responseCache) return undefined;
+    try {
+      const key = this.computeCacheKey(rawPrompt, fewShotStamp);
+      return await this.responseCache.get(key);
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: response-cache lookup failed — falling through to the optimizer (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return undefined;
+    }
+  }
+
+  /** Fire-and-forget cache store wrapped so any failure is only logged. */
+  private tryPutCachedResponse(
+    rawPrompt: string,
+    fewShotStamp: string,
+    enhancedPrompt: string,
+    intent: "ask" | "edit",
+  ): void {
+    if (!this.responseCache) return;
+    try {
+      this.responseCache.put(
+        this.computeCacheKey(rawPrompt, fewShotStamp),
+        enhancedPrompt,
+        intent,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: response-cache store failed — enhance unaffected (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+    }
+  }
+
+  /**
+   * Cache key: normalized raw prompt + catalog fingerprint + optimizer-prompt
+   * version + few-shot stamp ("" when few-shot is off or empty — so enabling
+   * the feature with no confirmed history never invalidates the cache).
+   */
+  private computeCacheKey(rawPrompt: string, fewShotStamp: string): string {
+    return this.responseCache.computeKey(
+      rawPrompt,
+      this.mcpToolRegistry.getCatalogFingerprint(),
+      fewShotStamp,
+    );
+  }
+
+  /** Create the pending feedback record; never throws across the enhance. */
+  private captureFeedback(
+    request: vscode.ChatRequest,
+    enhancedPrompt: string,
+    intent: "ask" | "edit",
+    suggestedTools: ReturnType<typeof classifyTools>["suggestedTools"],
+    mcpTools: MCPToolDescriptor[],
+  ): string | undefined {
+    if (!this.promptFeedbackLog) return undefined;
+    if (
+      !this.configManager.getFeedbackLearningOptions().feedbackEnabled
+    ) {
+      return undefined; // master switch off — no capture (service double-checks)
+    }
+    try {
+      const observedToolCalls = this.extractObservedToolCalls(request);
+      const input: PendingFeedbackInput = {
+        rawPrompt: request.prompt,
+        enhancedPrompt,
+        intent,
+        builtinToolTags: [...suggestedTools],
+        mcpRefs: mcpTools.map((t) => t.qualifiedName),
+        catalogFingerprint: this.mcpToolRegistry.getCatalogFingerprint(),
+        ...(observedToolCalls ? { observedToolCalls } : {}),
+      };
+      return this.promptFeedbackLog.createPending(input);
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: feedback capture failed — enhance unaffected (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return undefined;
+    }
+  }
+
+  // ─── Prompt assembly (Enhancements 1–4) ───────────────────────────────────
 
   private async buildPromptWithContext(
     prompt: string,
     request: vscode.ChatRequest,
-  ): Promise<string> {
-    let enhancedPrompt = prompt;
+  ): Promise<{
+    promptWithContext: string;
+    suggestedTools: ReturnType<typeof classifyTools>["suggestedTools"];
+    mcpTools: MCPToolDescriptor[];
+  }> {
+    const parts: string[] = [];
 
-    if (request.references && request.references.length > 0) {
-      const referencePromises = request.references.map(async (ref) => {
-        if (ref.value instanceof vscode.Uri) {
-          try {
-            const content = await this.fileSystem.readFile(ref.value);
-            return `File: ${ref.value.fsPath}\n\`\`\`\n${content}\n\`\`\``;
-          } catch (error) {
-            this.logger.warn(
-              `Failed to read file reference: ${ref.value.fsPath}`,
-            );
-            return `File: ${ref.value.fsPath} (Content unreadable)`;
-          }
-        } else if (ref.value instanceof vscode.Location) {
-          return `Location: ${ref.value.uri.fsPath}:${ref.value.range.start.line}`;
-        } else if (typeof ref.value === "string") {
-          return `Context: ${ref.value}`;
-        }
-        return "";
-      });
+    // Enhancement 2: Rich workspace context preamble
+    const wsCtx = await this.contextGatherer.gather();
+    const preamble = this.contextGatherer.formatAsPromptPreamble(wsCtx);
+    if (preamble) parts.push(preamble);
 
-      const referenceContexts = await Promise.all(referencePromises);
-      const combinedContext = referenceContexts.filter((s) => s).join("\n\n");
+    // Enhancement 3a: Resolve inline tokens (#file:, #selection, #editor, …)
+    const { cleanPrompt, resolved: inlineResolved } =
+      await this.referenceResolver.resolveInlineTokens(prompt);
 
-      if (combinedContext) {
-        enhancedPrompt = `${combinedContext}\n\nUser Request:\n${prompt}`;
-      }
+    // Enhancement 3b: Resolve drag-and-drop / autocomplete references
+    const explicitResolved =
+      request.references?.length
+        ? await this.referenceResolver.resolve(request.references)
+        : "";
+
+    if (inlineResolved.length > 0) {
+      parts.push(this.referenceResolver.formatResolved(inlineResolved));
+    }
+    if (explicitResolved) parts.push(explicitResolved);
+
+    // Enhancement 4: Discover MCP tools (cached; stale-while-revalidate) and
+    // filter to what the downstream Copilot agent can execute. Foreign-source
+    // tools (other editors' configs) are excluded unless the user opts in —
+    // when included they carry an explicit "only use if available" annotation.
+    await this.mcpToolRegistry.ensureCatalog();
+    const { includeForeignServers } =
+      this.configManager.getMcpProvisioningOptions();
+    const mcpCatalog = includeForeignServers
+      ? this.mcpToolRegistry.getToolCatalog()
+      : this.mcpToolRegistry.getInjectableCatalog();
+
+    // Enhancement 1 + 4: Classify built-in and MCP tools
+    const { suggestedTools, mcpTools, toolAnnotations } = classifyTools(
+      cleanPrompt,
+      mcpCatalog,
+    );
+
+    // Inject the filtered MCP catalog so the LLM knows what's available
+    if (mcpTools.length > 0) {
+      parts.push(this.mcpToolRegistry.formatForSystemPrompt(mcpTools));
     }
 
-    return enhancedPrompt;
+    // Append user request + tool placement guidance
+    parts.push(
+      `### User Request\n${cleanPrompt}${
+        toolAnnotations ? "\n\n" + toolAnnotations : ""
+      }`,
+    );
+
+    return {
+      promptWithContext: parts.join("\n\n"),
+      suggestedTools,
+      mcpTools,
+    };
   }
 
   private createTimeout(ms: number): Promise<never> {

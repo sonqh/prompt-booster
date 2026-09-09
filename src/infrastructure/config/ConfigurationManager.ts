@@ -106,6 +106,49 @@ export class ConfigurationManager implements IConfigurationManager {
     return this.getConfig<boolean>("simplifiedContextMode", true);
   }
 
+  getMcpProvisioningOptions(): {
+    probeServers: boolean;
+    includeForeignServers: boolean;
+    cacheTtlMinutes: number;
+  } {
+    return {
+      probeServers: this.getConfig<boolean>("mcp.probeServers", false),
+      includeForeignServers: this.getConfig<boolean>(
+        "mcp.includeForeignServers",
+        false,
+      ),
+      cacheTtlMinutes: this.getConfig<number>("mcp.cacheTtlMinutes", 10),
+    };
+  }
+
+  getFeedbackLearningOptions(): {
+    feedbackEnabled: boolean;
+    historyLimit: number;
+    cacheEnabled: boolean;
+    cacheTtlDays: number;
+    cacheMaxEntries: number;
+    fewShotFromFeedback: boolean;
+    maxFewShotExamples: number;
+    fewShotCharBudget: number;
+  } {
+    return {
+      feedbackEnabled: this.getConfig<boolean>("feedback.enabled", true),
+      historyLimit: this.getConfig<number>("feedback.historyLimit", 200),
+      cacheEnabled: this.getConfig<boolean>("cache.enabled", true),
+      cacheTtlDays: this.getConfig<number>("cache.ttlDays", 7),
+      cacheMaxEntries: this.getConfig<number>("cache.maxEntries", 200),
+      fewShotFromFeedback: this.getConfig<boolean>(
+        "learning.fewShotFromFeedback",
+        false,
+      ),
+      maxFewShotExamples: this.getConfig<number>("learning.maxFewShotExamples", 5),
+      fewShotCharBudget: this.getConfig<number>(
+        "learning.fewShotCharBudget",
+        2000,
+      ),
+    };
+  }
+
   /**
    * Helper to get configuration value
    */

@@ -10,6 +10,10 @@ import { ProcessFileCommand } from "./ProcessFileCommand";
 import { SwitchModeCommand } from "./SwitchModeCommand";
 import { SwitchModelCommand } from "./SwitchModelCommand";
 import { ChatCommandsHandler } from "./ChatCommands";
+import { RefreshMcpIndexCommand } from "./RefreshMcpIndexCommand";
+import { UsePromptVersionCommand } from "./UsePromptVersionCommand";
+import { ShowFeedbackReportCommand } from "./ShowFeedbackReportCommand";
+import { ExportMcpGoldenCandidatesCommand } from "./ExportMcpGoldenCandidatesCommand";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
@@ -28,6 +32,10 @@ export class CommandRegistry {
     this.registerProcessFileCommand(context);
     this.registerSwitchModeCommand(context);
     this.registerChatCommands(context);
+    this.registerRefreshMcpIndexCommand(context);
+    this.registerUsePromptVersionCommand(context);
+    this.registerShowFeedbackReportCommand(context);
+    this.registerExportMcpGoldenCandidatesCommand(context);
     this.registerUtilityCommands(context);
 
     logger.log("All commands registered successfully");
@@ -57,6 +65,41 @@ export class CommandRegistry {
       TYPES.ChatCommandsHandler,
     );
     handler.register(context);
+  }
+
+  private registerRefreshMcpIndexCommand(context: vscode.ExtensionContext): void {
+    const command = this.container.resolve<RefreshMcpIndexCommand>(
+      TYPES.RefreshMcpIndexCommand,
+    );
+    command.register(context);
+  }
+
+  private registerUsePromptVersionCommand(
+    context: vscode.ExtensionContext,
+  ): void {
+    const command = this.container.resolve<UsePromptVersionCommand>(
+      TYPES.UsePromptVersionCommand,
+    );
+    command.register(context);
+  }
+
+  private registerShowFeedbackReportCommand(
+    context: vscode.ExtensionContext,
+  ): void {
+    const command = this.container.resolve<ShowFeedbackReportCommand>(
+      TYPES.ShowFeedbackReportCommand,
+    );
+    command.register(context);
+  }
+
+  private registerExportMcpGoldenCandidatesCommand(
+    context: vscode.ExtensionContext,
+  ): void {
+    const command =
+      this.container.resolve<ExportMcpGoldenCandidatesCommand>(
+        TYPES.ExportMcpGoldenCandidatesCommand,
+      );
+    command.register(context);
   }
 
   private registerUtilityCommands(context: vscode.ExtensionContext): void {

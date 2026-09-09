@@ -9,6 +9,9 @@ import { TYPES } from "./di/types";
 import { CommandRegistry } from "./presentation/commands/CommandRegistry";
 import { ILogger } from "./shared/interfaces/ILogger";
 import { IConfigurationManager } from "./shared/interfaces/IConfigurationManager";
+import { IConfigChangeWatcher } from "./shared/interfaces/IConfigChangeWatcher";
+import { MCPToolRegistry } from "./core/services/MCPToolRegistry";
+import { PromptFileCodeLensProvider } from "./presentation/ui/ProcessButton";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("PromptBooster extension is now active");
@@ -39,7 +42,25 @@ export function activate(context: vscode.ExtensionContext) {
   // Step 5: Register chat participant for realtime mode
   registerChatParticipant(context, container);
 
-  // Step 6: Show welcome message on first activation
+  // Step 6: MCP discovery — warm the catalog in the background (fire-and-
+  // forget, never blocks activation) and dispose the config watcher with the
+  // extension so catalog invalidation stops on shutdown.
+  const mcpRegistry = container.resolve<MCPToolRegistry>(TYPES.MCPToolRegistry);
+  void mcpRegistry
+    .ensureCatalog()
+    .catch((error) =>
+      logger.warn(
+        `MCP catalog warm-up failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      ),
+    );
+  const configWatcher = container.resolve<IConfigChangeWatcher>(
+    TYPES.ConfigChangeWatcher,
+  );
+  context.subscriptions.push({ dispose: () => configWatcher.dispose() });
+
+  // Step 7: Show welcome message on first activation
   showWelcomeMessage(context);
 
   logger.log("PromptBooster extension fully initialized");
@@ -64,9 +85,6 @@ function registerUIComponents(
   logger.log("Status bar registered");
 
   // Register CodeLens provider for .prompt.md files
-  const {
-    PromptFileCodeLensProvider,
-  } = require("./presentation/ui/ProcessButton");
   const codeLensProvider = new PromptFileCodeLensProvider();
   const codeLensDisposable = vscode.languages.registerCodeLensProvider(
     { pattern: "**/*.prompt.md" },

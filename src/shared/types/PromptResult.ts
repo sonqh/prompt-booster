@@ -1,6 +1,23 @@
 import * as vscode from "vscode";
 
 /**
+ * VS Code Copilot built-in tool reference identifiers.
+ * Defined here (shared layer) so both PromptResult and ToolAffinityClassifier
+ * can reference the same type without a cross-layer dependency.
+ */
+export type CopilotTool =
+  | "#file"
+  | "#selection"
+  | "#editor"
+  | "#codebase"
+  | "#terminalLastCommand"
+  | "#terminalSelection"
+  | "@workspace"
+  | "@terminal"
+  | "@vscode";
+
+
+/**
  * Result of prompt optimization
  */
 export interface PromptResult {
@@ -13,7 +30,20 @@ export interface PromptResult {
    * Detected intent (ask vs edit)
    */
   intent: "ask" | "edit";
+
+  /**
+   * VS Code Copilot built-in tool references detected in the prompt
+   * (e.g. "#file", "@workspace"). Optional — absent when none matched.
+   */
+  suggestedTools?: CopilotTool[];
+
+  /**
+   * MCP tool references from the user's workspace config that match the prompt.
+   * Optional — absent when no MCP servers are configured or none matched.
+   */
+  mcpTools?: { server: string; tool: string }[];
 }
+
 
 /**
  * Options for prompt optimization

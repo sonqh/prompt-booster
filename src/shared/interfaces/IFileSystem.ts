@@ -20,6 +20,15 @@ export interface IFileSystem {
   fileExists(path: string | vscode.Uri): Promise<boolean>;
 
   /**
+   * Stat a file for fingerprinting (mtime + size). Resolves to `undefined`
+   * when the file does not exist or cannot be accessed — never throws, so
+   * callers can use it unguarded for cache-fingerprint and size-cap checks.
+   */
+  stat(
+    path: string | vscode.Uri,
+  ): Promise<{ mtimeMs: number; size: number } | undefined>;
+
+  /**
    * Create directory
    */
   createDirectory(path: string | vscode.Uri): Promise<void>;
