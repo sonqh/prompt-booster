@@ -1,5 +1,7 @@
 # Prompt Plan: PromptBooster MCP-Aware Tool Provisioning
 
+> **SUPERSEDED (phases 4a–4c):** an architectural review found this design's catalog is empty in real-world use (configs rarely embed inline tool schemas), tool references can target servers the VS Code Copilot agent cannot execute, and the scorer is imprecise. The revised design lives in **[plans/mcp-aware-tool-provisioning-v2.md](plans/mcp-aware-tool-provisioning-v2.md)** and takes precedence for all Enhancement 4 work. This document remains for history; Enhancement 1–3 references are still valid.
+>
 > **Goal:** Enable PromptBooster to discover user-configured MCP servers and weave their tool references into enhanced prompts — so the downstream agent immediately picks the best tool.
 >
 > **Reference spec:** [promptbooster-enhancement-spec.md](promptbooster-enhancement-spec.md) — Enhancement 4
