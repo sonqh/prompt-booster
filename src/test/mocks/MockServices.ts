@@ -14,7 +14,11 @@ import {
   PromptResult,
 } from "../../shared/types/PromptResult";
 import { computeResponseCacheKey } from "../../core/services/PromptResponseCache";
-import { CachedPromptResponse } from "../../shared/types/PromptFeedbackTypes";
+import type { GoldenSetCandidate } from "../../core/services/PromptLearningStore";
+import {
+  CachedPromptResponse,
+  ConfirmedPromptPair,
+} from "../../shared/types/PromptFeedbackTypes";
 
 /**
  * Mock Configuration Manager
@@ -399,6 +403,43 @@ export class MockPromptResponseCache {
 
   getCacheStats(): { hits: number; misses: number; hitRate: number | null } {
     return { hits: 0, misses: 0, hitRate: null };
+  }
+}
+
+/**
+ * Mock Learning Store — mirrors IPromptLearningStore for strategy tests:
+ * configurable confirmed pairs, call recording (including the selection
+ * options the strategy passes), and a throwing flag to prove the strategy's
+ * failure posture (a broken learning store degrades to no few-shot block and
+ * an empty cache stamp, never an enhance failure).
+ */
+export class MockLearningStore {
+  /** Confirmed pairs returned by getFewShotExamples (copies, most recent first). */
+  public fewShotExamples: ConfirmedPromptPair[] = [];
+  /** Candidates returned by getGoldenSetCandidates. */
+  public goldenCandidates: GoldenSetCandidate[] = [];
+  public getFewShotExamplesCalls: unknown[] = [];
+  public getGoldenSetCandidatesCalls = 0;
+  /** When true, getFewShotExamples throws (failure-posture tests). */
+  public failFewShot = false;
+
+  async getFewShotExamples(
+    options?: unknown,
+  ): Promise<ConfirmedPromptPair[]> {
+    if (this.failFewShot) throw new Error("mock learning store failure");
+    this.getFewShotExamplesCalls.push(options);
+    return this.fewShotExamples.map((e) => ({
+      ...e,
+      retainedRefs: [...e.retainedRefs],
+    }));
+  }
+
+  async getGoldenSetCandidates(): Promise<GoldenSetCandidate[]> {
+    this.getGoldenSetCandidatesCalls++;
+    return this.goldenCandidates.map((c) => ({
+      ...c,
+      expectedTools: [...c.expectedTools],
+    }));
   }
 }
 

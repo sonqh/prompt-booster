@@ -74,6 +74,16 @@
         "command": "promptBooster.usePromptVersion",
         "title": "PromptBooster: Use This Prompt Version",
         "category": "PromptBooster"
+      },
+      {
+        "command": "promptBooster.showFeedbackReport",
+        "title": "PromptBooster: Show Feedback Report",
+        "category": "PromptBooster"
+      },
+      {
+        "command": "promptBooster.exportMcpGoldenCandidates",
+        "title": "PromptBooster: Export MCP Golden-Set Candidates",
+        "category": "PromptBooster"
       }
     ],
     "chatParticipants": [

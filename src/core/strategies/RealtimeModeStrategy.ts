@@ -30,6 +30,12 @@ import {
   PendingFeedbackInput,
 } from "../services/PromptFeedbackLog";
 import { IPromptResponseCache } from "../services/PromptResponseCache";
+import {
+  IPromptLearningStore,
+  FewShotSelectionOptions,
+  computeFewShotStamp,
+  renderFewShotBlock,
+} from "../services/PromptLearningStore";
 import { CachedPromptResponse } from "../../shared/types/PromptFeedbackTypes";
 
 export class RealtimeModeStrategy implements IModeStrategy {
@@ -45,6 +51,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     private mcpToolRegistry: MCPToolRegistry,
     private promptFeedbackLog: IPromptFeedbackLog,
     private responseCache: IPromptResponseCache,
+    private learningStore: IPromptLearningStore,
   ) {}
 
   canHandle(mode: OperationMode): boolean {
@@ -261,38 +268,85 @@ export class RealtimeModeStrategy implements IModeStrategy {
   }
 
   /**
-   * Phase E2: consult the response cache immediately in front of the optimizer
-   * LLM call. A hit returns the stored text verbatim (the LLM is skipped
-   * entirely); a miss, stale entry, corrupt state, disabled cache, or any
-   * cache failure falls through to the normal path and stores the result
+   * Phase E2 + E3: consult the response cache immediately in front of the
+   * optimizer LLM call. A hit returns the stored text verbatim (the LLM is
+   * skipped entirely); a miss, stale entry, corrupt state, disabled cache, or
+   * any cache failure falls through to the normal path and stores the result
    * fire-and-forget. Cache behavior is never observable as an enhance failure.
+   *
+   * The opt-in few-shot block (Phase E3) is loaded FIRST because the selected
+   * examples are part of the cache key: same examples ⇒ same key (cache hit),
+   * new confirmed feedback ⇒ different stamp ⇒ guaranteed miss.
    */
   private async optimizeWithResponseCache(
     rawPrompt: string,
     promptWithContext: string,
     options: OptimizationOptions,
   ): Promise<PromptResult | undefined> {
-    const cached = await this.tryGetCachedResponse(rawPrompt);
+    const fewShot = await this.loadFewShot();
+    const cached = await this.tryGetCachedResponse(rawPrompt, fewShot.stamp);
     if (cached) {
       return { enhancedPrompt: cached.enhancedPrompt, intent: cached.intent };
     }
+    const optimizerInput = fewShot.block
+      ? `${promptWithContext}\n\n${fewShot.block}`
+      : promptWithContext;
     const result = await this.optimizer.optimizeStructured(
-      promptWithContext,
+      optimizerInput,
       options,
     );
     if (result) {
-      this.tryPutCachedResponse(rawPrompt, result.enhancedPrompt, result.intent);
+      this.tryPutCachedResponse(
+        rawPrompt,
+        fewShot.stamp,
+        result.enhancedPrompt,
+        result.intent,
+      );
     }
     return result;
+  }
+
+  /**
+   * Phase E3: opt-in few-shot examples from confirmed feedback, appended after
+   * the existing context/catalog/guidance. Off by default
+   * (`promptBooster.learning.fewShotFromFeedback`) — a privacy decision the
+   * user must make explicitly. Any learning-store failure degrades to no
+   * block + empty stamp; the enhance must still run.
+   */
+  private async loadFewShot(): Promise<{ stamp: string; block: string }> {
+    if (!this.learningStore) return { stamp: "", block: "" };
+    try {
+      const options = this.configManager.getFeedbackLearningOptions();
+      if (!options.fewShotFromFeedback) return { stamp: "", block: "" };
+      const selection: FewShotSelectionOptions = {
+        enabled: options.fewShotFromFeedback,
+        maxExamples: options.maxFewShotExamples,
+        charBudget: options.fewShotCharBudget,
+      };
+      const examples = await this.learningStore.getFewShotExamples(selection);
+      if (examples.length === 0) return { stamp: "", block: "" };
+      return {
+        stamp: computeFewShotStamp(examples),
+        block: renderFewShotBlock(examples),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `RealtimeModeStrategy: few-shot selection failed — enhancing without examples (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+      return { stamp: "", block: "" };
+    }
   }
 
   /** Cache lookup wrapped so any failure degrades to a miss. */
   private async tryGetCachedResponse(
     rawPrompt: string,
+    fewShotStamp: string,
   ): Promise<CachedPromptResponse | undefined> {
     if (!this.responseCache) return undefined;
     try {
-      const key = this.computeCacheKey(rawPrompt);
+      const key = this.computeCacheKey(rawPrompt, fewShotStamp);
       return await this.responseCache.get(key);
     } catch (error) {
       this.logger.warn(
@@ -307,12 +361,17 @@ export class RealtimeModeStrategy implements IModeStrategy {
   /** Fire-and-forget cache store wrapped so any failure is only logged. */
   private tryPutCachedResponse(
     rawPrompt: string,
+    fewShotStamp: string,
     enhancedPrompt: string,
     intent: "ask" | "edit",
   ): void {
     if (!this.responseCache) return;
     try {
-      this.responseCache.put(this.computeCacheKey(rawPrompt), enhancedPrompt, intent);
+      this.responseCache.put(
+        this.computeCacheKey(rawPrompt, fewShotStamp),
+        enhancedPrompt,
+        intent,
+      );
     } catch (error) {
       this.logger.warn(
         `RealtimeModeStrategy: response-cache store failed — enhance unaffected (${
@@ -324,14 +383,14 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
   /**
    * Cache key: normalized raw prompt + catalog fingerprint + optimizer-prompt
-   * version (+ few-shot stamp once Phase E3 wires the real one).
+   * version + few-shot stamp ("" when few-shot is off or empty — so enabling
+   * the feature with no confirmed history never invalidates the cache).
    */
-  private computeCacheKey(rawPrompt: string): string {
-    // fewShotStamp is the empty string until Phase E3 wires the real stamp.
+  private computeCacheKey(rawPrompt: string, fewShotStamp: string): string {
     return this.responseCache.computeKey(
       rawPrompt,
       this.mcpToolRegistry.getCatalogFingerprint(),
-      "",
+      fewShotStamp,
     );
   }
 

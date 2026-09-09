@@ -12,12 +12,14 @@ import {
   MockMCPToolRegistry,
   MockPromptFeedbackLog,
   MockPromptResponseCache,
+  MockLearningStore,
 } from "../../mocks/MockServices";
 import { MockLogger } from "../../mocks/MockLogger";
 import { WorkspaceContextGatherer } from "../../../core/services/WorkspaceContextGatherer";
 import { ReferenceResolver } from "../../../core/services/ReferenceResolver";
 import { classifyTools } from "../../../core/services/ToolAffinityClassifier";
 import { computeResponseCacheKey } from "../../../core/services/PromptResponseCache";
+import { computeFewShotStamp } from "../../../core/services/PromptLearningStore";
 
 suite("RealtimeModeStrategy Test Suite", () => {
   let strategy: RealtimeModeStrategy;
@@ -29,6 +31,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
   let mockMcpRegistry: MockMCPToolRegistry;
   let mockFeedbackLog: MockPromptFeedbackLog;
   let mockResponseCache: MockPromptResponseCache;
+  let mockLearningStore: MockLearningStore;
   let contextGatherer: WorkspaceContextGatherer;
   let referenceResolver: ReferenceResolver;
 
@@ -41,6 +44,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
     mockMcpRegistry = new MockMCPToolRegistry();
     mockFeedbackLog = new MockPromptFeedbackLog();
     mockResponseCache = new MockPromptResponseCache();
+    mockLearningStore = new MockLearningStore();
 
     contextGatherer = new WorkspaceContextGatherer(mockLogger);
     referenceResolver = new ReferenceResolver(mockFileSystem, mockLogger);
@@ -55,6 +59,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
       mockMcpRegistry as any,
       mockFeedbackLog as any,
       mockResponseCache as any,
+      mockLearningStore as any,
     );
   });
 
@@ -787,6 +792,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
       const responseCache = new MockPromptResponseCache();
       responseCache.enabled = cacheEnabled;
       const feedbackLog = new MockPromptFeedbackLog();
+      const learningStore = new MockLearningStore();
       const localStrategy = new RealtimeModeStrategy(
         optimizer,
         new MockLanguageModelProvider(),
@@ -797,6 +803,7 @@ suite("RealtimeModeStrategy Test Suite", () => {
         mockMcpRegistry as any,
         feedbackLog as any,
         responseCache as any,
+        learningStore as any,
       );
 
       const mockStream = {
@@ -852,5 +859,163 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
     assert.strictEqual(empty.feedbackLog.createPendingCalls.length, 1);
     assert.strictEqual(disabled.feedbackLog.createPendingCalls.length, 1);
+  });
+
+  // ── Phase E3: opt-in few-shot block from confirmed feedback ───────────────
+
+  /** Run an enhance and capture the optimizer input + rendered markdown. */
+  const runEnhanceCapture = async (prompt: string) => {
+    let capturedPrompt = "";
+    const originalOptimize =
+      mockOptimizer.optimizeStructured.bind(mockOptimizer);
+    mockOptimizer.optimizeStructured = async (promptText, options) => {
+      capturedPrompt = promptText;
+      return originalOptimize(promptText, options);
+    };
+
+    const mockStream = {
+      output: [] as string[],
+      buttons: [] as any[],
+      markdown: function (value: string) {
+        this.output.push(value);
+      },
+      button: function (btn: any) {
+        this.buttons.push(btn);
+      },
+      progress: function (_: string) {},
+    };
+    const context: any = {
+      metadata: {
+        stream: mockStream,
+        request: { prompt, command: "", references: [], toolCalls: [] },
+        token: new vscode.CancellationTokenSource().token,
+      },
+    };
+    await strategy.execute(context);
+    return { capturedPrompt, mockStream };
+  };
+
+  const examplePairs = [
+    {
+      rawPrompt: "profile the slow query",
+      enhancedPrompt: "**Task** Profile the slow query via `db.query`",
+      retainedRefs: ["db.query"],
+      timestamp: 2,
+    },
+  ];
+
+  test("fewShotFromFeedback on ⇒ block appended after context and stamp enters the cache key", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockConfig.setFeedbackLearningOptions({ fewShotFromFeedback: true });
+    mockLearningStore.fewShotExamples = examplePairs;
+
+    const prompt = "Summarize the authentication flow";
+    const { capturedPrompt, mockStream } = await runEnhanceCapture(prompt);
+
+    // The block is appended after the existing context/catalog/guidance, with
+    // the accepted pair embedded via the core/prompts template.
+    assert.ok(
+      capturedPrompt.includes("### Accepted Prompt Examples (few-shot)"),
+      "few-shot block header present when the opt-in is on",
+    );
+    assert.ok(capturedPrompt.includes("profile the slow query"));
+    assert.ok(capturedPrompt.includes("**Task** Profile the slow query"));
+    assert.ok(
+      capturedPrompt.indexOf("### User Request") <
+        capturedPrompt.indexOf("### Accepted Prompt Examples"),
+      "the block is appended after the existing prompt assembly",
+    );
+
+    // The selection options mirror the promptBooster.learning.* settings.
+    assert.strictEqual(mockLearningStore.getFewShotExamplesCalls.length, 1);
+    const passedOptions: any = mockLearningStore.getFewShotExamplesCalls[0];
+    assert.strictEqual(passedOptions.enabled, true);
+    assert.strictEqual(passedOptions.maxExamples, 5);
+    assert.strictEqual(passedOptions.charBudget, 2000);
+
+    // The stamp of the selected examples is part of every computed cache key…
+    const stamp = computeFewShotStamp(examplePairs);
+    assert.notStrictEqual(stamp, "");
+    assert.ok(mockResponseCache.computeKeyCalls.length >= 1);
+    assert.ok(
+      mockResponseCache.computeKeyCalls.every((c) => c.fewShotStamp === stamp),
+      "cache keys carry the few-shot stamp",
+    );
+    // …so the stored entry lives under the stamped key, not the off-key.
+    assert.strictEqual(mockResponseCache.putCalls.length, 1);
+    assert.strictEqual(
+      mockResponseCache.putCalls[0].key,
+      computeResponseCacheKey(prompt, "mock-fingerprint", stamp),
+    );
+
+    // The rendered output itself is unchanged by few-shot (input-only effect).
+    assert.ok(
+      mockStream.output.some((s: string) => s.includes("Optimized Prompt")),
+    );
+  });
+
+  test("fewShotFromFeedback off (default) ⇒ no block, empty stamp, store never called", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    // fewShotFromFeedback defaults to false in MockConfigurationManager.
+    mockLearningStore.fewShotExamples = examplePairs;
+
+    const { capturedPrompt } = await runEnhanceCapture("Summarize the auth flow");
+
+    assert.ok(
+      !capturedPrompt.includes("Accepted Prompt Examples"),
+      "no few-shot block when the opt-in is off",
+    );
+    assert.strictEqual(
+      mockLearningStore.getFewShotExamplesCalls.length,
+      0,
+      "the learning store is not consulted while the opt-in is off",
+    );
+    assert.ok(mockResponseCache.computeKeyCalls.length >= 1);
+    assert.ok(
+      mockResponseCache.computeKeyCalls.every((c) => c.fewShotStamp === ""),
+      "cache keys keep the empty few-shot stamp",
+    );
+  });
+
+  test("few-shot on but zero confirmed examples ⇒ unchanged input + empty stamp", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockConfig.setFeedbackLearningOptions({ fewShotFromFeedback: true });
+    mockLearningStore.fewShotExamples = []; // nothing confirmed yet
+
+    const { capturedPrompt } = await runEnhanceCapture("Summarize the auth flow");
+
+    assert.ok(!capturedPrompt.includes("Accepted Prompt Examples"));
+    assert.ok(
+      mockResponseCache.computeKeyCalls.every((c) => c.fewShotStamp === ""),
+      "zero examples keep the empty stamp (cache stays compatible)",
+    );
+  });
+
+  test("throwing learning store ⇒ enhance still renders, no block, empty stamp", async () => {
+    mockConfig.setAutoOptimize(true);
+    mockConfig.setPermission(true);
+    mockConfig.setFeedbackLearningOptions({ fewShotFromFeedback: true });
+    mockLearningStore.failFewShot = true;
+
+    const { capturedPrompt, mockStream } = await runEnhanceCapture("Test prompt");
+
+    assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 1);
+    assert.ok(
+      mockStream.output.some((s: string) => s.includes("Optimized Prompt")),
+      "the enhance must still render when the learning store throws",
+    );
+    assert.ok(mockStream.buttons.length > 0, "buttons still render");
+    assert.ok(!capturedPrompt.includes("Accepted Prompt Examples"));
+    assert.ok(
+      mockResponseCache.computeKeyCalls.every((c) => c.fewShotStamp === ""),
+      "failures degrade to the empty stamp",
+    );
+    assert.ok(
+      mockLogger.warnings.some((w) => w.includes("few-shot selection failed")),
+      "the degradation is logged",
+    );
   });
 });

@@ -26,6 +26,7 @@ import { McpToolIndexStore } from "../core/services/McpToolIndexStore";
 import { McpServerProbe } from "../core/services/McpServerProbe";
 import { PromptFeedbackLog } from "../core/services/PromptFeedbackLog";
 import { PromptResponseCache } from "../core/services/PromptResponseCache";
+import { PromptLearningStore } from "../core/services/PromptLearningStore";
 
 // Strategies
 import { ManualModeStrategy } from "../core/strategies/ManualModeStrategy";
@@ -41,6 +42,8 @@ import { SwitchModelCommand } from "../presentation/commands/SwitchModelCommand"
 import { ChatCommandsHandler } from "../presentation/commands/ChatCommands";
 import { RefreshMcpIndexCommand } from "../presentation/commands/RefreshMcpIndexCommand";
 import { UsePromptVersionCommand } from "../presentation/commands/UsePromptVersionCommand";
+import { ShowFeedbackReportCommand } from "../presentation/commands/ShowFeedbackReportCommand";
+import { ExportMcpGoldenCandidatesCommand } from "../presentation/commands/ExportMcpGoldenCandidatesCommand";
 
 // Presentation - UI & Participants
 import { ChatParticipantHandler } from "../presentation/participants/ChatParticipantHandler";
@@ -206,6 +209,13 @@ export class ServiceRegistry {
         c.resolve<ILogger>(TYPES.Logger),
       );
     });
+
+    container.registerSingleton(TYPES.PromptLearningStore, (c) => {
+      return new PromptLearningStore(
+        c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
   }
 
   /**
@@ -232,6 +242,7 @@ export class ServiceRegistry {
         c.resolve<MCPToolRegistry>(TYPES.MCPToolRegistry),
         c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
         c.resolve<PromptResponseCache>(TYPES.PromptResponseCache),
+        c.resolve<PromptLearningStore>(TYPES.PromptLearningStore),
       );
     });
 
@@ -296,6 +307,22 @@ export class ServiceRegistry {
     container.registerSingleton(TYPES.UsePromptVersionCommand, (c) => {
       return new UsePromptVersionCommand(
         c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.ShowFeedbackReportCommand, (c) => {
+      return new ShowFeedbackReportCommand(
+        c.resolve<PromptFeedbackLog>(TYPES.PromptFeedbackLog),
+        c.resolve<PromptResponseCache>(TYPES.PromptResponseCache),
+        c.resolve<PromptLearningStore>(TYPES.PromptLearningStore),
+        c.resolve<ILogger>(TYPES.Logger),
+      );
+    });
+
+    container.registerSingleton(TYPES.ExportMcpGoldenCandidatesCommand, (c) => {
+      return new ExportMcpGoldenCandidatesCommand(
+        c.resolve<PromptLearningStore>(TYPES.PromptLearningStore),
         c.resolve<ILogger>(TYPES.Logger),
       );
     });
