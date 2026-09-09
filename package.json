@@ -67,23 +67,19 @@
       },
       {
         "command": "promptBooster.refreshMcpIndex",
-        "title": "PromptBooster: Refresh MCP Tool Index",
-        "category": "PromptBooster"
+        "title": "PromptBooster: Refresh MCP Tool Index"
       },
       {
         "command": "promptBooster.usePromptVersion",
-        "title": "PromptBooster: Use This Prompt Version",
-        "category": "PromptBooster"
+        "title": "PromptBooster: Use This Prompt Version"
       },
       {
         "command": "promptBooster.showFeedbackReport",
-        "title": "PromptBooster: Show Feedback Report",
-        "category": "PromptBooster"
+        "title": "PromptBooster: Show Feedback Report"
       },
       {
         "command": "promptBooster.exportMcpGoldenCandidates",
-        "title": "PromptBooster: Export MCP Golden-Set Candidates",
-        "category": "PromptBooster"
+        "title": "PromptBooster: Export MCP Golden-Set Candidates"
       }
     ],
     "chatParticipants": [
