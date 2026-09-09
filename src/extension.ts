@@ -11,6 +11,7 @@ import { ILogger } from "./shared/interfaces/ILogger";
 import { IConfigurationManager } from "./shared/interfaces/IConfigurationManager";
 import { IConfigChangeWatcher } from "./shared/interfaces/IConfigChangeWatcher";
 import { MCPToolRegistry } from "./core/services/MCPToolRegistry";
+import { PromptFileCodeLensProvider } from "./presentation/ui/ProcessButton";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("PromptBooster extension is now active");
@@ -84,9 +85,6 @@ function registerUIComponents(
   logger.log("Status bar registered");
 
   // Register CodeLens provider for .prompt.md files
-  const {
-    PromptFileCodeLensProvider,
-  } = require("./presentation/ui/ProcessButton");
   const codeLensProvider = new PromptFileCodeLensProvider();
   const codeLensDisposable = vscode.languages.registerCodeLensProvider(
     { pattern: "**/*.prompt.md" },

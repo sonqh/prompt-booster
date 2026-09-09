@@ -44,6 +44,7 @@ export class ChildProcessMcpTransport implements IMcpProcessTransport {
       let child: ChildProcess | undefined;
       let settled = false;
       let buffer = "";
+      // eslint-disable-next-line prefer-const -- armed after stdio setup below; read by closures defined earlier in source order
       let initTimer: NodeJS.Timeout | undefined;
       let listTimer: NodeJS.Timeout | undefined;
       const overallTimer = setTimeout(() => finish([], "overall timeout"), request.timeoutMs);

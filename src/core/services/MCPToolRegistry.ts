@@ -95,6 +95,7 @@ const TOTAL_DESCRIPTION_BUDGET = 1500;
  */
 function sanitizeDescription(description: string): string {
   const cleaned = description
+    // eslint-disable-next-line no-control-regex -- stripping control chars is the point (prompt-injection defense)
     .replace(/[\x00-\x1F\x7F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
