@@ -79,6 +79,7 @@ const FOREIGN_SOURCES: ReadonlySet<McpConfigSource> = new Set([
   "cline",
 ]);
 
+// REQ-DISC-003
 function visibilityFor(source: McpConfigSource): ToolVisibility {
   return FOREIGN_SOURCES.has(source) ? "foreign" : "injectable";
 }
@@ -182,6 +183,7 @@ export class MCPToolRegistry {
    * returned IMMEDIATELY and discovery re-runs in the background. Only the
    * very first call (no cache yet) awaits discovery.
    */
+  // REQ-DISC-007
   async ensureCatalog(): Promise<MCPToolDescriptor[]> {
     if (this.refreshInFlight) {
       await this.refreshInFlight;
@@ -243,6 +245,7 @@ export class MCPToolRegistry {
    * targets come from config; the later passes then REPLACE lower-priority
    * descriptors per the priority table above.
    */
+  // REQ-DISC-001 REQ-DISC-002
   async discover(): Promise<void> {
     const state: DiscoveryState = { catalog: [], servers: new Map() };
 
@@ -303,6 +306,7 @@ export class MCPToolRegistry {
    * identifiers the target agent must resolve to its own runtime tool IDs —
    * and must silently ignore when unresolvable (never probe, never invent).
    */
+  // REQ-INJ-004
   formatForSystemPrompt(tools: MCPToolDescriptor[]): string {
     if (tools.length === 0) return "";
 
@@ -437,6 +441,7 @@ export class MCPToolRegistry {
    * the downstream Copilot agent can actually execute. Runs FIRST so it
    * wins dedup over same-name config entries. Unavailable → silent skip.
    */
+  // REQ-DISC-009
   private async discoverFromRuntime(state: DiscoveryState): Promise<void> {
     if (!this.runtimeToolsProvider.isAvailable()) return;
 
@@ -579,6 +584,7 @@ export class MCPToolRegistry {
   }
 
   /** Enabled servers with a launch command but no known tools — probe targets. */
+  // REQ-PROBE-006
   getProbeTargets(): Array<{
     serverName: string;
     command: string;
@@ -652,6 +658,7 @@ export class MCPToolRegistry {
     return paths;
   }
 
+  // REQ-DISC-008
   private async computeFingerprint(): Promise<string> {
     const parts: string[] = [`watcher=${this.watcherVersion}`];
     for (const filePath of this.configFilePaths()) {
@@ -708,6 +715,7 @@ export class MCPToolRegistry {
    * `mcpServers` map, and register all entries. Absent files are normal and
    * silent; malformed or oversized files warn and are skipped.
    */
+  // REQ-DISC-006
   private async discoverFromConfigFile(
     state: DiscoveryState,
     filePath: string,
@@ -763,6 +771,7 @@ export class MCPToolRegistry {
    * First source wins; later sources are recorded on the descriptor and a
    * conflict warning is emitted when the normalized command+args differ.
    */
+  // REQ-DISC-004 REQ-DISC-005
   private registerServers(
     state: DiscoveryState,
     servers: Record<string, RawServerConfig>,

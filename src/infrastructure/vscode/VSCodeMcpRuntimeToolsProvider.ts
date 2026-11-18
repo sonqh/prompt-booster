@@ -47,6 +47,7 @@ interface LmApiLike {
   tools?: { list?: unknown };
 }
 
+// REQ-DISC-009
 export class VSCodeMcpRuntimeToolsProvider implements IMcpRuntimeToolsProvider {
   constructor(private logger: ILogger) {}
 

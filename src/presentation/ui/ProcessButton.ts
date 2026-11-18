@@ -45,6 +45,7 @@ export class ProcessButton {
   }
 }
 
+// REQ-FILE-004 REQ-FILE-005
 export class PromptFileCodeLensProvider implements vscode.CodeLensProvider {
   provideCodeLenses(
     document: vscode.TextDocument,

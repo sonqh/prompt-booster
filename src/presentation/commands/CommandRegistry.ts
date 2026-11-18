@@ -102,6 +102,7 @@ export class CommandRegistry {
     command.register(context);
   }
 
+  // REQ-CFG-003
   private registerUtilityCommands(context: vscode.ExtensionContext): void {
     const logger = this.container.resolve<ILogger>(TYPES.Logger);
     const configManager = this.container.resolve<IConfigurationManager>(

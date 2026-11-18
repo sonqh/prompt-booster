@@ -29,6 +29,7 @@ export interface WorkspaceContext {
   techStack?: string[];       // parsed from package.json
 }
 
+// REQ-ENH-002
 export class WorkspaceContextGatherer {
   constructor(private logger: ILogger) {}
 

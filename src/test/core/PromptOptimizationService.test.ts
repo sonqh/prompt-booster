@@ -15,6 +15,8 @@ suite("PromptOptimizationService Test Suite", () => {
     service = new PromptOptimizationService(mockLogger);
   });
 
+  // Covers: REQ-ENH-001
+  // SCN-ENH-001-3
   test("optimize returns enhanced prompt string", async () => {
     // Mock the model response
     const mockModel: any = {
@@ -41,6 +43,8 @@ suite("PromptOptimizationService Test Suite", () => {
     assert.strictEqual(result, "Enhanced: Test Prompt");
   });
 
+  // Covers: REQ-ENH-001
+  // SCN-ENH-001-1
   test("optimizeStructured returns intent and prompt", async () => {
     const mockModel: any = {
       sendRequest: async (
@@ -67,6 +71,8 @@ suite("PromptOptimizationService Test Suite", () => {
     assert.strictEqual(result.enhancedPrompt, "Structured Edit");
   });
 
+  // Covers: REQ-ENH-001
+  // SCN-ENH-001-2
   test("handles JSON parsing errors gracefully", async () => {
     const mockModel: any = {
       sendRequest: async (

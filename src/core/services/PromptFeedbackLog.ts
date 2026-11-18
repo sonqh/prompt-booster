@@ -100,6 +100,7 @@ export const FEEDBACK_ID_PATTERN = /^PromptBooster-Feedback-Id:\s*(\S+)\s*$/m;
  * block. Ids elsewhere in the document are ignored (only FileModeStrategy's
  * header is authoritative).
  */
+// REQ-FBK-012
 export function extractFeedbackId(content: string): string | undefined {
   if (!content.startsWith("<!--")) return undefined;
   const end = content.indexOf("-->");
@@ -128,6 +129,7 @@ export function stripHtmlComments(content: string): string {
  * | pending /      | none (funnel-only)                                             |
  * | edit-opened    |                                                                |
  */
+// REQ-FBK-004
 export function deriveRefLabels(
   record: PromptFeedbackRecord,
 ): Array<{ ref: string; label: McpRefLabel }> {
@@ -154,6 +156,7 @@ export function deriveRefLabels(
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
+// REQ-FBK-001 REQ-FBK-002 REQ-FBK-003 REQ-FBK-006
 export class PromptFeedbackLog implements IPromptFeedbackLog {
   private pending = new Map<string, PromptFeedbackRecord>();
   private resolved: PromptFeedbackRecord[] = [];
@@ -280,6 +283,7 @@ export class PromptFeedbackLog implements IPromptFeedbackLog {
   }
 
   /** Aggregated funnel + rates for promptBooster.showFeedbackReport. */
+  // REQ-FBK-005
   getReport(): PromptFeedbackReport {
     try {
       this.ensureLoaded();

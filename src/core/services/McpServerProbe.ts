@@ -21,6 +21,7 @@ import {
   McpProbeTarget,
 } from "./IMcpServerProbe";
 
+// REQ-PROBE-002 REQ-PROBE-004
 export class McpServerProbe implements IMcpServerProbe {
   /** Plan decision record: 2s init / 3s list inside a 6s overall budget. */
   public static readonly DEFAULT_TIMEOUT_MS = 6_000;

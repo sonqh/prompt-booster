@@ -93,6 +93,7 @@ export function renderFewShotBlock(examples: ConfirmedPromptPair[]): string {
  * few-shot being off, so enabling the feature with no history never
  * invalidates the cache).
  */
+// REQ-FBK-010
 export function computeFewShotStamp(examples: ConfirmedPromptPair[]): string {
   if (examples.length === 0) return "";
   return createHash("sha256")
@@ -115,6 +116,7 @@ export interface IPromptLearningStore {
   getGoldenSetCandidates(): Promise<GoldenSetCandidate[]>;
 }
 
+// REQ-FBK-009 REQ-FBK-011
 export class PromptLearningStore implements IPromptLearningStore {
   constructor(
     private feedbackLog: IPromptFeedbackLog,

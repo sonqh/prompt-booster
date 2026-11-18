@@ -79,6 +79,8 @@ class UntouchableFeedbackLog {
 suite("PromptLearningStore", () => {
   // ── Promotion rules ────────────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-009
+  // SCN-FBK-009-1
   test("only accept and edit-finalized records are promoted", async () => {
     const { state, store } = makeHarness();
     seed(
@@ -132,6 +134,8 @@ suite("PromptLearningStore", () => {
 
   // ── Dedupe ─────────────────────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-009
+  // SCN-FBK-009-2
   test("dedupes by normalized raw prompt — most recent wins", async () => {
     const { state, store } = makeHarness();
     seed(state, [
@@ -174,6 +178,8 @@ suite("PromptLearningStore", () => {
     );
   });
 
+  // Covers: REQ-FBK-009
+  // SCN-FBK-009-3
   test("char budget truncates at example boundaries, never mid-example", async () => {
     const { state, store } = makeHarness();
     const a: ConfirmedPromptPair = {
@@ -228,6 +234,8 @@ suite("PromptLearningStore", () => {
 
   // ── Opt-in gate ────────────────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-009
+  // SCN-FBK-009-4
   test("fewShotFromFeedback off ⇒ zero examples without touching the feedback log", async () => {
     const logger = new MockLogger();
     const untouchable = new UntouchableFeedbackLog();
@@ -242,6 +250,8 @@ suite("PromptLearningStore", () => {
 
   // ── Golden-set candidates ──────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-011
+  // SCN-FBK-011-1
   test("candidate export shape: retained refs only, ≥ 1 retained required", async () => {
     const { state, store } = makeHarness();
     seed(state, [
@@ -276,6 +286,8 @@ suite("PromptLearningStore", () => {
     );
   });
 
+  // Covers: REQ-FBK-011
+  // SCN-FBK-011-2
   test("no confirmed positives ⇒ no candidates", async () => {
     const { state, store } = makeHarness();
     seed(state, [record({ outcome: "reject" })]);

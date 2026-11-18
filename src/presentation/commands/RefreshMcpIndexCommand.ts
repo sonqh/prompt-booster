@@ -21,6 +21,7 @@ import {
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-DISC-011 REQ-PROBE-001
 export class RefreshMcpIndexCommand {
   /** Bound the worst-case runtime (each probe is timeboxed to ~6s). */
   private static readonly MAX_PROBE_TARGETS = 10;

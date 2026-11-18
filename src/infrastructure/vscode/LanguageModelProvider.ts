@@ -7,6 +7,7 @@ import { ILanguageModelProvider } from "../../core/models/ILanguageModelProvider
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-CFG-002
 export class LanguageModelProvider implements ILanguageModelProvider {
   private lastUsedModel: vscode.LanguageModelChat | undefined;
 

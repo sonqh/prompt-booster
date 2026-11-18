@@ -13,6 +13,7 @@ import * as vscode from "vscode";
 import { IPromptLearningStore } from "../../core/services/PromptLearningStore";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-FBK-011
 export class ExportMcpGoldenCandidatesCommand {
   constructor(
     private learningStore: IPromptLearningStore,

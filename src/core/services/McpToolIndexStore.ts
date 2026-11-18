@@ -48,6 +48,7 @@ export function probeCacheFingerprint(
   return JSON.stringify([normalizedCommand, normalizedArgs]);
 }
 
+// REQ-DISC-010 REQ-PROBE-005
 export class McpToolIndexStore implements IMcpToolIndexStore {
   private static readonly PROBE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 

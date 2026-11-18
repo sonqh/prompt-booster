@@ -24,6 +24,8 @@ const target = {
 };
 
 suite("McpServerProbe", () => {
+  // Covers: REQ-PROBE-002
+  // SCN-PROBE-002-1
   test("happy path maps tools/list results", async () => {
     const { probe, transport } = makeProbe();
     transport.behaviors.push(() =>
@@ -49,6 +51,8 @@ suite("McpServerProbe", () => {
     assert.deepStrictEqual(result.tools, []);
   });
 
+  // Covers: REQ-PROBE-002
+  // SCN-PROBE-002-2
   test("transport rejection resolves to an empty result (never throws)", async () => {
     const { probe, transport } = makeProbe();
     transport.behaviors.push(() =>
@@ -59,6 +63,8 @@ suite("McpServerProbe", () => {
     assert.deepStrictEqual(result.tools, []);
   });
 
+  // Covers: REQ-PROBE-002
+  // SCN-PROBE-002-3
   test("hung transport times out to an empty result with a bounded deadline", async () => {
     const { probe, transport } = makeProbe();
     transport.behaviors.push(() => new Promise(() => {})); // never resolves
@@ -73,6 +79,8 @@ suite("McpServerProbe", () => {
     assert.strictEqual(transport.requests[0].timeoutMs, 50);
   });
 
+  // Covers: REQ-PROBE-002
+  // SCN-PROBE-002-4
   test("malformed tool entries are skipped", async () => {
     const { probe, transport } = makeProbe();
     transport.behaviors.push(() =>
@@ -93,6 +101,8 @@ suite("McpServerProbe", () => {
     assert.strictEqual(result.tools[0].name, "ok_tool");
   });
 
+  // Covers: REQ-PROBE-004
+  // SCN-PROBE-004-1
   test("env values never appear in logger output", async () => {
     const { probe, transport, logger } = makeProbe();
     // Exercise success, failure, and timeout paths — none may log env.
@@ -119,6 +129,8 @@ suite("McpServerProbe", () => {
     );
   });
 
+  // Covers: REQ-PROBE-002
+  // SCN-PROBE-002-5
   test("default deadline is the documented 6s probe budget", async () => {
     const { probe, transport } = makeProbe();
     transport.behaviors.push(() => Promise.resolve({ tools: [] }));

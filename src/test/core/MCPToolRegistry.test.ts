@@ -85,6 +85,8 @@ function settle(): Promise<void> {
 suite("MCPToolRegistry (hermetic)", () => {
   // ── Basic discovery + tagging ──────────────────────────────────────────────
 
+  // Covers: REQ-DISC-001, REQ-DISC-003
+  // SCN-DISC-001-1 SCN-DISC-003-1
   test("discovers inline tools from .vscode/mcp.json with source/visibility/origin tags", async () => {
     const { registry } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -108,6 +110,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     assert.strictEqual(tool.enabled, true);
   });
 
+  // Covers: REQ-DISC-001
+  // SCN-DISC-001-2
   test("falls back to .cline/mcp.json when .vscode/mcp.json is absent", async () => {
     const { registry } = makeRegistry({
       "/mock/workspace/.cline/mcp.json": mcpJson({
@@ -176,6 +180,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     assert.strictEqual(tool.visibility, "foreign");
   });
 
+  // Covers: REQ-DISC-001
+  // SCN-DISC-001-4
   test("returns empty catalog gracefully when no config sources exist", async () => {
     const { registry } = makeRegistry({});
     const catalog = await registry.ensureCatalog(); // must not throw
@@ -186,6 +192,8 @@ suite("MCPToolRegistry (hermetic)", () => {
 
   // ── Visibility policy ──────────────────────────────────────────────────────
 
+  // Covers: REQ-DISC-003
+  // SCN-DISC-003-2
   test("foreign-source tools are excluded from getInjectableCatalog()", async () => {
     const { registry } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -249,6 +257,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-DISC-004
+  // SCN-DISC-004-1
   test("warns when colliding servers declare different commands", async () => {
     const { registry, logger } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -284,6 +294,8 @@ suite("MCPToolRegistry (hermetic)", () => {
 
   // ── Enablement checks ──────────────────────────────────────────────────────
 
+  // Covers: REQ-DISC-005
+  // SCN-DISC-005-2
   test("server with empty command is skipped (not in catalog)", async () => {
     const { registry } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -300,6 +312,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-DISC-005
+  // SCN-DISC-005-1
   test("server with disabled:true is excluded from getToolCatalog()", async () => {
     const { registry } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -340,6 +354,8 @@ suite("MCPToolRegistry (hermetic)", () => {
 
   // ── 5 MB parse cap ─────────────────────────────────────────────────────────
 
+  // Covers: REQ-DISC-006
+  // SCN-DISC-006-1
   test("config files larger than 5 MB are skipped without parsing", async () => {
     const big = mcpJson({
       "big-server": {
@@ -366,6 +382,8 @@ suite("MCPToolRegistry (hermetic)", () => {
 
   // ─── ensureCatalog caching: fingerprint, invalidation, SWR ────────────────
 
+  // Covers: REQ-DISC-007
+  // SCN-DISC-007-1
   test("ensureCatalog is cached: repeated calls do not re-run discovery", async () => {
     const { registry, logger, config } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -389,6 +407,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-DISC-007
+  // SCN-DISC-007-2
   test("stale-while-revalidate: changed file returns cached catalog first, fresh next", async () => {
     const { registry, fs } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -429,6 +449,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-DISC-007
+  // SCN-DISC-007-3
   test("watcher event invalidates the cache (mtime/size unchanged)", async () => {
     const { registry, watcher, logger } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -452,6 +474,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-DISC-007
+  // SCN-DISC-007-4
   test("TTL expiry revalidates even when the fingerprint is unchanged", async () => {
     const { registry, logger, config } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -471,6 +495,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     assert.ok(discoveryLogs() > before, "zero TTL must revalidate every call");
   });
 
+  // Covers: REQ-DISC-008
+  // SCN-DISC-008-1
   test("getCatalogFingerprint changes when a config file changes", async () => {
     const { registry, fs } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -490,6 +516,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     assert.notStrictEqual(fp1, fp2, "fingerprint must reflect mtime/size");
   });
 
+  // Covers: REQ-DISC-001
+  // SCN-DISC-001-3
   test("malformed config JSON is skipped with a warning", async () => {
     const { registry, logger } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": "{ not valid json",
@@ -504,6 +532,8 @@ suite("MCPToolRegistry (hermetic)", () => {
 
   // ── formatForSystemPrompt ──────────────────────────────────────────────────
 
+  // Covers: REQ-INJ-004
+  // SCN-INJ-004-1
   test("formatForSystemPrompt returns empty string for empty input", async () => {
     const { registry } = makeRegistry({});
     await registry.ensureCatalog();
@@ -525,6 +555,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     assert.ok(output.includes("Execute SQL"), "should include description");
   });
 
+  // Covers: REQ-INJ-004
+  // SCN-INJ-004-4
   test("formatForSystemPrompt guidance states semantic identifiers, runtime-ID mapping, and ignore-unresolvable", async () => {
     const { registry } = makeRegistry({
       "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -550,6 +582,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-INJ-004
+  // SCN-INJ-004-2
   test("formatForSystemPrompt sanitizes descriptions (control chars, newlines, whitespace, 200-char cap)", () => {
     const { registry } = makeRegistry({});
     const tool = {
@@ -622,6 +656,8 @@ suite("MCPToolRegistry (hermetic)", () => {
     );
   });
 
+  // Covers: REQ-INJ-004
+  // SCN-INJ-004-3
   test("formatForSystemPrompt keeps the tool list within the ~1500-char budget", () => {
     const { registry } = makeRegistry({});
     const tools = Array.from({ length: 20 }, (_, i) => ({
@@ -653,6 +689,8 @@ suite("MCPToolRegistry (hermetic)", () => {
   // ── Waterfall: runtime > probe-cache > manual-index > inline > stub ───────
 
   suite("waterfall priority (runtime / probe-cache / manual-index)", () => {
+    // Covers: REQ-DISC-009
+    // SCN-DISC-009-1
     test("runtime tools register without any config file (F1 acceptance shape)", async () => {
       const runtime = new MockRuntimeToolsProvider();
       runtime.available = true;
@@ -676,6 +714,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       assert.ok(tool.description.length > 0, "runtime descriptions are real");
     });
 
+    // Covers: REQ-DISC-002
+    // SCN-DISC-002-1
     test("runtime wins dedup over same-name config entries", async () => {
       const runtime = new MockRuntimeToolsProvider();
       runtime.available = true;
@@ -709,6 +749,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       );
     });
 
+    // Covers: REQ-DISC-009
+    // SCN-DISC-009-2
     test("unavailable runtime provider falls through silently", async () => {
       const runtime = new MockRuntimeToolsProvider();
       runtime.available = false;
@@ -718,6 +760,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       assert.strictEqual(rt.listCalls, 0, "unavailable provider is not listed");
     });
 
+    // Covers: REQ-DISC-002
+    // SCN-DISC-002-2
     test("manual index entries register and override inline schemas", async () => {
       const indexStore = new MockMcpToolIndexStore();
       indexStore.manualEntries = [
@@ -781,6 +825,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       assert.strictEqual(tool.origin, "runtime-api");
     });
 
+    // Covers: REQ-DISC-002
+    // SCN-DISC-002-3
     test("probe cache fills stub servers and beats the manual index", async () => {
       const indexStore = new MockMcpToolIndexStore();
       indexStore.manualEntries = [
@@ -815,6 +861,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       );
     });
 
+    // Covers: REQ-DISC-002
+    // SCN-DISC-002-4
     test("probe cache miss leaves the stub tool-less (name-level only)", async () => {
       const { registry, indexStore } = makeRegistry({
         "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -827,6 +875,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       assert.deepStrictEqual(registry.getServerNames(), ["stub-mcp"]);
     });
 
+    // Covers: REQ-PROBE-006
+    // SCN-PROBE-006-1
     test("getProbeTargets lists enabled stub servers with launch commands", async () => {
       const { registry } = makeRegistry({
         "/mock/workspace/.vscode/mcp.json": mcpJson({
@@ -846,6 +896,8 @@ suite("MCPToolRegistry (hermetic)", () => {
       assert.deepStrictEqual(targets[0].args, ["s.js"]);
     });
 
+    // Covers: REQ-DISC-008
+    // SCN-DISC-008-2
     test("manual index changes invalidate the fingerprint", async () => {
       const indexStore = new MockMcpToolIndexStore();
       indexStore.manualEntries = [

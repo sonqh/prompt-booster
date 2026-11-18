@@ -82,6 +82,7 @@ export class FileModeStrategy implements IModeStrategy {
    * the "Use This Version" code lens can finalize the edit-path feedback
    * record with the user's final text.
    */
+  // REQ-FILE-001
   async generatePromptFile(
     original: string,
     optimized: string,
@@ -123,6 +124,7 @@ export class FileModeStrategy implements IModeStrategy {
    * Process a prompt file (send to Copilot)
    * Note: This is a public method called by the ProcessFileCommand
    */
+  // REQ-FILE-003
   async processPromptFile(content: string, fileName: string): Promise<void> {
     try {
       this.logger.log(`Processing prompt file: ${fileName}`);
@@ -156,6 +158,7 @@ export class FileModeStrategy implements IModeStrategy {
     }
   }
 
+  // REQ-FILE-002
   private async generateFilename(
     original: string,
     pattern: string,

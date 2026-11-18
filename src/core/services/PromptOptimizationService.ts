@@ -7,6 +7,7 @@ import {
 import { ILogger } from "../../shared/interfaces/ILogger";
 import * as vscode from "vscode";
 
+// REQ-ENH-001
 export class PromptOptimizationService implements IPromptOptimizationService {
   constructor(private logger: ILogger) {}
 

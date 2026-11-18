@@ -11,6 +11,7 @@ import { FileModeStrategy } from "../../core/strategies/FileModeStrategy";
 import { IPromptFeedbackLog } from "../../core/services/PromptFeedbackLog";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-CHAT-007
 export class ChatCommandsHandler {
   constructor(
     private fileModeStrategy: FileModeStrategy,

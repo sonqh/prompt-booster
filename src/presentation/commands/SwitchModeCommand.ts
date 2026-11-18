@@ -6,6 +6,7 @@ import { IConfigurationManager } from "../../shared/interfaces/IConfigurationMan
 import { OperationMode } from "../../shared/types/OperationMode";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-CFG-001
 export class SwitchModeCommand {
   constructor(
     private configManager: IConfigurationManager,

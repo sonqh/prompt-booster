@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { IConfigurationManager } from "../../shared/interfaces/IConfigurationManager.js";
 import { ILogger } from "../../shared/interfaces/ILogger.js";
 
+// REQ-CFG-002
 export class SwitchModelCommand {
   constructor(
     private configManager: IConfigurationManager,

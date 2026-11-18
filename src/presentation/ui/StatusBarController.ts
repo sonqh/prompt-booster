@@ -6,6 +6,7 @@ import { IConfigurationManager } from "../../shared/interfaces/IConfigurationMan
 import { ILogger } from "../../shared/interfaces/ILogger";
 import { OperationMode } from "../../shared/types/OperationMode";
 
+// REQ-CFG-004
 export class StatusBarController implements vscode.Disposable {
   private statusBarItem: vscode.StatusBarItem;
 
