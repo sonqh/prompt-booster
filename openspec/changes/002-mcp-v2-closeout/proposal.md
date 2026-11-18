@@ -2,21 +2,25 @@
 
 ## Why
 
-The plan `docs/plans/mcp-aware-tool-provisioning-v2.md` is implemented except for four items. The audit of 2026-11-18 found them:
+The plan `docs/plans/mcp-aware-tool-provisioning-v2.md` is implemented, but the audit of 2026-11-18 and the review after it found gaps in proof, in secrets, and in trust:
 
-- Success criterion 2 asks for a golden set of about 20 labeled prompts that gates precision at 0.8. The fixture and the test do not exist, so nothing in CI guards the scorer.
-- Section 3 says that the opt-in probe runs in the background on activation and on a config change. Today it runs only from the `Refresh MCP Tool Index` command. The setting description in `package.json` already promises the background run.
-- The registry keeps the full raw config of each server in memory, with `env`, `headers`, and unknown keys. The catalog fingerprint holds the VS Code `mcp.servers` setting as raw JSON, with its `env` values. That fingerprint is stored in every feedback record in workspace state.
-- The Phase E commands (`Use This Version`, the feedback report, the golden-set export) and the refresh command have no test. The plan accepted manual QA, and no QA record exists.
+- Success criterion 2 asks for a golden set that gates precision at 0.8. The fixture and the test do not exist, so nothing in CI guards the scorer. The launch claim "the right MCP tools" has no evidence.
+- `MCPToolRegistry.computeFingerprint` returns a plain join of its inputs. One input is the VS Code `mcp.servers` setting as raw JSON, with its `env` and `headers` values. Every feedback record stores that string in workspace state.
+- The registry keeps the full raw config of each server in memory, with `headers` and unknown keys.
+- A cloned repository can hold `.vscode/mcp.json` and `.vscode/settings.json`. Today the extension reads both in an untrusted workspace, and a workspace setting can turn `promptBooster.mcp.probeServers` on. The probe starts the commands that the workspace file names.
+- The setting description says that the probe runs "on activation, config change, or via the command". Only the command exists. The background probe is cut from the roadmap (ADR-003), so the text must change and not the code.
+- The Phase E commands and the refresh command have no test.
 
 ## What Changes
 
-- Add `src/test/fixtures/mcp-golden-prompts.json` and `src/test/core/McpGoldenSet.test.ts`. The test fails when precision is under 0.8 or recall is under 0.6.
-- Add a background probe run on activation and on an MCP config change, only when `promptBooster.mcp.probeServers` is on.
-- Keep only the needed fields of a server config. Build the fingerprint from a hash of the settings. Add a test that no `env` or `headers` value reaches a descriptor, the manual index, the fingerprint, or a log.
+- Add a golden set of at least 20 labeled prompts over at least 20 tools, and a test that fails under 0.8 precision or under 0.6 recall. CI runs it.
+- Hash the catalog fingerprint with SHA-256. Keep `env` and `headers` values out of the hashed input, out of the registry state, and out of every stored or written artifact. Add a canary test.
+- A server with a `url` is listed by name only. Its `headers` are dropped at parse. The extension never connects to it.
+- In an untrusted workspace, read no workspace MCP config and run no probe. Accept `mcp.probeServers` only from user or machine settings.
+- Describe the probe as manual-only in the manifest.
 - Add tests for the four untested commands.
 
-Out of scope: the latency benchmark of criterion 5, support for `url` servers (http and sse), the removal of `vscode` from core (change 003).
+Out of scope: a background probe (cut), support for http and sse servers, the latency benchmark of criterion 5, the removal of `vscode` from core (parked).
 
 ## Capabilities
 
@@ -26,10 +30,11 @@ None.
 
 ### Modified Capabilities
 - `mcp-tool-injection`: adds the golden-set gate.
-- `mcp-probe-security`: changes when the probe can run, and adds the rule for secret fields.
+- `mcp-probe-security`: adds the trusted-workspace condition, the rule for secret fields, and the setting scope.
+- `mcp-tool-discovery`: adds the rule for `url` servers and the rule for untrusted workspaces.
 
 ## Impact
 
-- New: `src/test/fixtures/mcp-golden-prompts.json`, `src/test/core/McpGoldenSet.test.ts`, `src/core/services/McpBackgroundProber.ts`, `src/test/core/McpBackgroundProber.test.ts`, `src/test/core/McpSecretHygiene.test.ts`, `src/test/presentation/*.test.ts`.
-- Changed: `src/core/services/MCPToolRegistry.ts`, `src/presentation/commands/RefreshMcpIndexCommand.ts`, `src/extension.ts`, `src/di/ServiceRegistry.ts`, `src/di/types.ts`.
+- New: `src/test/fixtures/mcp-golden-prompts.json`, `src/test/core/McpGoldenSet.test.ts`, `src/test/core/McpSecretCanary.test.ts`, `src/test/presentation/commands/*.test.ts`.
+- Changed: `MCPToolRegistry.ts`, `IMcpEnvironmentProvider.ts`, `VSCodeMcpEnvironmentProvider.ts`, `VSCodeConfigWatcher.ts`, `RefreshMcpIndexCommand.ts`, `MockMcpEnvironmentProvider.ts`, `MCPToolRegistry.test.ts`, `package.json` (`capabilities`, the scope and description of `mcp.probeServers`).
 - The response cache key changes one time, because the fingerprint format changes. Old cache entries become misses.

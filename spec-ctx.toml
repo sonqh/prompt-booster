@@ -15,9 +15,10 @@ tests = ["src/test/**"]
 ignore = ["src/test/fixtures/**"]
 
 [ids]
+# CORE and PLUG are reserved for the parked designs under openspec/parked/. No active spec uses them.
 # Capability codes. check reports a REQ whose code is not in this list. id new accepts only these codes.
 # An empty list turns the rule off, and id new accepts any code of 2 to 6 upper case letters.
-caps = ["ENH", "CHAT", "BOOST", "FILE", "CFG", "DISC", "INJ", "PROBE", "FBK", "CORE", "REL", "PLUG"]
+caps = ["ENH", "CHAT", "BOOST", "FILE", "CFG", "DISC", "INJ", "PROBE", "FBK", "REL", "SKILL", "CORE", "PLUG"]
 # Pattern of the task number in a tasks.md checkbox.
 task_pattern = '\d+\.\d+'
 # true makes adopt and id new write the ID in square brackets, [REQ-UA-001], as OpenSpec PR #1979 reads it.
