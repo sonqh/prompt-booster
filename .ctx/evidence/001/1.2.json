@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-18T08:09:02.747Z",
+  "bundle_chars": 6712,
+  "files": {},
+  "kind": "command",
+  "reqs": [
+    "REQ-REL-002"
+  ],
+  "started_at": "2026-11-18T08:08:31.648Z",
+  "task": "001/1.2",
+  "tool_version": "0.6.0",
+  "verify": {
+    "command": "grep -q \"^## \\[0.2.3\\]\" CHANGELOG.md && grep -q \"^## \\[Unreleased\\]\" CHANGELOG.md && grep -qi \"frozen\" CHANGELOG.md && test \"$(grep '^## \\[[0-9]' CHANGELOG.md | head -1 | sed 's/^## \\[\\([^]]*\\)\\].*/\\1/')\" = \"$(node -p \"require('./package.json').version\")\"",
+    "exit": 0,
+    "stderr_tail": "",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

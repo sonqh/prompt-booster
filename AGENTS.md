@@ -1,10 +1,17 @@
 # PromptBooster — Agent Guidelines
 
-VS Code extension that intercepts/enhances prompts before they reach GitHub Copilot. TypeScript, no framework.
+This repository holds a frozen VS Code extension and the plan for an agent plugin. TypeScript, no framework.
 
 ## Project Overview
 
-PromptBooster optimizes raw prompts before they reach Copilot, across three operation modes (manual file boosting, realtime chat interception, file generation). See [README.md](README.md) for user-facing features and [docs/promptbooster-enhancement-spec.md](docs/promptbooster-enhancement-spec.md) / [docs/meta-mcp-orchestrator-spec.md](docs/meta-mcp-orchestrator-spec.md) for feature specs driving current work.
+Status, from [decisions/ADR-004-plugin-first.md](decisions/ADR-004-plugin-first.md):
+
+- The product is one agent plugin, `prompt-booster`, with one skill, `/prompt-booster:boost`. Its folder is `plugin/`. The folder does not exist yet. New work goes to the plugin.
+- The VS Code extension under `src/` is frozen. It gets no feature and no release. It was never published to a store.
+- The chat entry `@PromptBooster` is a chat participant. VS Code deprecated chat participants. It runs only on the Local harness, which VS Code removes in February 2027.
+- The Meta-MCP orchestrator is archived. No code exists for it. Its files under `docs/` are history.
+
+The extension rewrites a raw prompt with a language model before the user sends it to Copilot. It has three operation modes: manual file boost, the realtime chat participant, and file generation. See [README.md](README.md) for the user-facing text. The sections below describe the frozen extension.
 
 ## Folder Structure
 
@@ -35,7 +42,7 @@ src/
     core/                        # unit tests mirroring src/core/
     mocks/                       # MockLogger, MockFileSystem, MockServices
     suite/                        # mocha entrypoint (index.ts)
-docs/                          # architecture diagrams + in-flight feature specs
+docs/                          # architecture diagrams + old feature specs (history)
 ```
 
 ## Architecture
@@ -43,16 +50,16 @@ docs/                          # architecture diagrams + in-flight feature specs
 Clean layered architecture with manual dependency injection (no reflection/decorators):
 
 - `src/core/` — domain logic: `services/` (business logic, e.g. `PromptOptimizationService`, `MCPToolRegistry`, `WorkspaceContextGatherer`, `ReferenceResolver`), `strategies/` (one `IModeStrategy` per operation mode: Manual/Realtime/File), `models/` (LM provider interface), `prompts/` (system prompt templates).
-- `src/infrastructure/` — VS Code API adapters implementing `shared/interfaces/*` (e.g. `VSCodeFileSystem` implements `IFileSystem`). Keeps `vscode` API usage out of core logic.
+- `src/infrastructure/` — VS Code API adapters implementing `shared/interfaces/*` (e.g. `VSCodeFileSystem` implements `IFileSystem`). The aim was to keep `vscode` API usage out of core logic. Seven core files break that rule today.
 - `src/presentation/` — commands, chat participant, status bar/UI.
 - `src/di/` — `Container.ts` (simple symbol-keyed service locator), `ServiceRegistry.ts` (wires every service — **register new services here**), `types.ts` (symbol constants — add new ones here).
 - `src/shared/` — interfaces and types shared across layers.
 
-**Operation modes** (`OperationMode`): `manual` (boost `.prompt.md` files on right-click), `realtime` (chat participant `@PromptBooster` interception), `file` (generate `.prompt.md` from chat input). Each mode has its own `IModeStrategy` implementation under `core/strategies/`.
+**Operation modes** (`OperationMode`): `manual` (boost `.prompt.md` files on right-click), `realtime` (the chat participant `@PromptBooster`), `file` (generate `.prompt.md` from chat input). Each mode has its own `IModeStrategy` implementation under `core/strategies/`.
 
-Core services always depend on interfaces (`ILogger`, `IFileSystem`, etc.), never concrete `infrastructure/` classes directly — this is what makes them unit-testable without the `vscode` module.
+Core services always depend on interfaces (`ILogger`, `IFileSystem`, etc.), never concrete `infrastructure/` classes directly. Services that keep this rule are unit-testable without the `vscode` module.
 
-See [docs/architecture_diagrams.md](docs/architecture_diagrams.md) for diagrams and [implementation_plan.md](implementation_plan.md) / [docs/](docs/) for in-flight feature specs.
+See [docs/architecture_diagrams.md](docs/architecture_diagrams.md) for diagrams. [implementation_plan.md](implementation_plan.md) and [docs/](docs/) are history.
 
 ## Build and Test
 
@@ -70,7 +77,7 @@ Tests live under `src/test/` mirroring `src/core/` structure, using `MockLogger`
 
 - New service → add symbol to `di/types.ts`, register factory in `di/ServiceRegistry.ts`, inject dependencies through the constructor (never `container.resolve()` inside a service).
 - Define an interface in `shared/interfaces/` (or alongside the service, e.g. `IPromptOptimizationService.ts`) before implementing — services are consumed by their interface type everywhere outside the registry.
-- Never import `vscode` directly in `src/core/**`; go through an `infrastructure/` adapter.
+- Add no new `vscode` import in `src/core/**`. Go through an `infrastructure/` adapter. Seven files in `src/core` break this rule today. Do not write that core code is free of `vscode`.
 - `tsconfig.json` has `strict`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns` — fix these rather than suppressing.
 - `MCPToolRegistry` discovers MCP servers from `.vscode/mcp.json` (with `.cline/mcp.json` fallback) — see its tests for the expected JSON shape before changing parsing logic.
 

@@ -2,6 +2,61 @@
 
 All notable changes to the "PromptBooster" extension will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- The VS Code extension is frozen. It gets no feature and no release. It was never published to a store.
+- Reason: VS Code deprecated chat participants. A chat participant does not run on the Copilot harness. It runs only on the Local harness, and VS Code removes the Local harness in February 2027. See https://code.visualstudio.com/api/extension-guides/ai/chat
+- The product moves to an agent plugin with one skill, `/prompt-booster:boost`. The plugin does not exist yet. See [decisions/ADR-004-plugin-first.md](decisions/ADR-004-plugin-first.md).
+- Manifest: `capabilities.untrustedWorkspaces.supported` is `false`. VS Code does not activate the extension in an untrusted workspace.
+- Manifest: `promptBooster.mcp.probeServers` has the scope `machine`. A workspace settings file cannot turn the probe on. The description says that the probe runs only from the `Refresh MCP Tool Index` command.
+- Manifest: the `description` starts with `Legacy (Local harness only):`.
+- The `version` stays `0.2.4`.
+
+### Added
+
+- `LICENSE` holds the full MIT License text.
+- A CI workflow at `.github/workflows/ci.yml` runs compile, lint, `specctx check --strict`, and `openspec validate --all --strict`. The Electron tests run in a step that does not block.
+- The design moved to an OpenSpec tree with spec-ctx IDs (`openspec/`, `decisions/`).
+
+## [0.2.4] - 2026-02-22
+
+The version changed to 0.2.4 on 2026-02-22. The commits of 2026-03-09 and of 2026-09-06 to 2026-09-09 did not change the version. This entry holds them too. No build of 0.2.4 was published to a store.
+
+### Fixed
+
+- Model preference matching normalizes hyphens (2026-02-22).
+
+### Added
+
+- Tool-aware transformation and MCP-aware tool provisioning: `MCPToolRegistry`, `ToolAffinityClassifier`, `WorkspaceContextGatherer`, and `ReferenceResolver`, with tests for the registry and the classifier (2026-03-09).
+- MCP discovery ports and hermetic test foundations (Phase A, 2026-09-06).
+- `MCPToolRegistry` v2 with ports, tagging, and a fingerprint cache (Phase B, 2026-09-06).
+- MCP tool acquisition from the runtime, a probe, and a manual index (Phase C, 2026-09-06).
+- Scorer v2 and injection gating (Phase D, 2026-09-06).
+- Acceptance-based feedback capture (Phase E1, 2026-09-06).
+- Optimizer response cache with LRU and TTL that tolerates corrupt entries (Phase E2, 2026-09-09).
+- Learning store, few-shot promotion, and the feedback report (Phase E3, 2026-09-09).
+- ESLint config. The `lint` script passes (2026-09-09).
+- `AGENTS.md`, `CLAUDE.md`, and the PO, Architect, Developer, and QA agent personas (2026-09-06).
+
+### Changed
+
+- `RealtimeModeStrategy` and the system prompts use the discovered tools (2026-03-09).
+- The new command contributions have no `category` field (2026-09-09).
+- README refresh for MCP-aware provisioning v2 (2026-09-09).
+
+## [0.2.3] - 2026-02-19
+
+### Fixed
+
+- Model switching in `LanguageModelProvider` and `ChatParticipantHandler`.
+
+### Changed
+
+- The default of `promptBooster.modelPreference` is `claude-haiku-4.5`. It was `gpt-4.1`.
+
 ## [0.2.2] - 2026-02-18
 
 ### Added
@@ -77,7 +132,6 @@ All notable changes to the "PromptBooster" extension will be documented in this 
 - Template system for common tasks
 - Caching and performance optimizations
 - Unit and integration tests
-- Marketplace publication
 
 ---
 

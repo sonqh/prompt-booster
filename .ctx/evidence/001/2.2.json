@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-18T08:10:49.509Z",
+  "bundle_chars": 6785,
+  "files": {},
+  "kind": "command",
+  "reqs": [
+    "REQ-REL-004"
+  ],
+  "started_at": "2026-11-18T08:10:48.517Z",
+  "task": "001/2.2",
+  "tool_version": "0.6.0",
+  "verify": {
+    "command": "test -f .github/workflows/ci.yml && grep -q \"pull_request\" .github/workflows/ci.yml && grep -q \"npm run compile\" .github/workflows/ci.yml && grep -q \"npm run lint\" .github/workflows/ci.yml && grep -q \"check --strict\" .github/workflows/ci.yml && grep -q \"validate --all --strict\" .github/workflows/ci.yml && grep -q \"continue-on-error: true\" .github/workflows/ci.yml",
+    "exit": 0,
+    "stderr_tail": "",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

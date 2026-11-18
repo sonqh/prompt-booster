@@ -168,5 +168,13 @@
     "verdict": "approved",
     "answer": "Approved by the owner in chat on 2026-11-18 15:06 (+07): he agreed that the lead starts 001-repo-honesty and prepares the spike fixture. Recorded by the lead on his behalf.",
     "resolved_at": "2026-11-18T08:07:31.212Z"
+  },
+  {
+    "n": 21,
+    "asked_at": "2026-11-18T08:15:44.155Z",
+    "task": "001-repo-honesty",
+    "text": "archive 001-repo-honesty?",
+    "status": "open",
+    "stage": "archive"
   }
 ]
