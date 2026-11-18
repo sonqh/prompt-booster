@@ -109,3 +109,43 @@ This keeps quality intact even when most code is written by an agent: no single 
 | Codex CLI | Codex has no separate persona-file mechanism — follow the role definitions above manually: paste the relevant role's responsibilities into your prompt before asking Codex to act in that capacity |
 
 Regardless of tool, never skip straight from "idea" to "Developer" for anything beyond a trivial fix — run the idea past the PO role first.
+
+## Specs and workflow
+
+The design source of truth is the OpenSpec tree, managed with the `spec-ctx` CLI. See [decisions/ADR-001-adopt-spec-ctx.md](decisions/ADR-001-adopt-spec-ctx.md). The files under `docs/`, `implementation_plan.md`, and `walkthrough.md` are history. Do not edit them and do not put a new design there.
+
+Commands: `specctx` is `npx -y spec-ctx@0.6.0`. `openspec` is `npx -y @fission-ai/openspec@2.1.0`.
+
+- **Main specs:** `openspec/specs/<capability>/spec.md`. They state only behavior that the code has today. All nine describe the frozen extension. One folder per capability: ENH `prompt-enhancement-pipeline`, CHAT `chat-participant-realtime-mode`, BOOST `manual-boost-mode`, FILE `file-prompt-mode`, CFG `extension-settings-and-commands`, DISC `mcp-tool-discovery`, INJ `mcp-tool-injection`, PROBE `mcp-probe-security`, FBK `prompt-feedback-learning`.
+- **Changes:** `openspec/changes/<NNN-name>/` holds `proposal.md`, `design.md`, `tasks.md`, and delta specs. Work that is not done lives here, never in a main spec.
+  Active changes, in this order: `001-repo-honesty`, `002-plugin-spike`, `003-boost-skill-plugin`, `004-evidence-and-release`. The direction is in [decisions/ADR-004-plugin-first.md](decisions/ADR-004-plugin-first.md): the product is one agent plugin with one skill, `/prompt-booster:boost`, in `plugin/`. The VS Code extension under `src/` is frozen. Do not add a feature to it.
+- **Parked designs:** `openspec/parked/` holds designs with no open task: the MCP v2 closeout (golden set, fingerprint fix, trust gate), the operation-mode removal, the Marketplace launch, the old release hygiene, the host-neutral core, and the old Claude Code plugin port (history). Do not work on them. See `openspec/parked/README.md`.
+- **Decisions:** `decisions/ADR-NNN-*.md`. ADR-004 supersedes ADR-003 in part. Do not write that `src/core` has no `vscode` import. Seven core files import it.
+- **IDs:** a requirement is `REQ-<CAP>-NNN`. A scenario is `SCN-<CAP>-NNN-n`. An ID never changes. Get a new one from `specctx id new REQ <CAP>`.
+
+Read context with the CLI. Do not read `openspec/specs/` file by file:
+
+```bash
+specctx status                                  # active changes, next task, open questions
+specctx context 001/1.1                         # all that one task needs
+specctx context REQ-INJ-001                     # one requirement with its code and tests
+specctx context src/core/services/ToolAffinityClassifier.ts   # the requirements that a file implements
+```
+
+The task loop:
+
+1. `specctx task next` names the next open task.
+2. `specctx task start <task>` prints its context. Read it before you edit.
+3. Do the work. Follow the conventions above.
+4. `specctx task done <task>` runs the `Verify:` command of the task. It sets the checkbox and writes evidence only on exit code 0. Never edit a checkbox by hand.
+5. After each task group, run `specctx check --strict` and `openspec validate --all --strict`.
+6. At the end of a session, run `specctx handoff write`.
+
+Tags link code and tests to requirements:
+
+- Put `// REQ-<CAP>-NNN` on the line above the class or function that implements a requirement.
+- Put `// Covers: REQ-<CAP>-NNN` and the scenario IDs (`// SCN-<CAP>-NNN-n`) on the lines above the test that proves it.
+- When you move code, move its tag with it. `specctx check --strict` reports a main requirement that no test covers.
+- `.ctx/baseline.json` lists the requirements that had no test on 2026-11-18. The list can only shrink. Run `specctx baseline prune` after you add a test.
+
+Open owner questions are in `.ctx/questions.json`. Do not start work that depends on an open question. Tasks marked `(owner)` need a person. Prepare the file, then stop and ask. The spike, the A/B run, the tag, and the awesome-copilot pull request are owner work.

@@ -63,12 +63,16 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-CHAT-002
+  // SCN-CHAT-002-2
   test("canHandle returns true for realtime mode", () => {
     assert.strictEqual(strategy.canHandle("realtime"), true);
     assert.strictEqual(strategy.canHandle("manual"), false);
     assert.strictEqual(strategy.canHandle("file"), false);
   });
 
+  // Covers: REQ-CHAT-002
+  // SCN-CHAT-002-1
   test("execute warns if auto-optimization is disabled", async () => {
     mockConfig.setAutoOptimize(false);
 
@@ -95,6 +99,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 0);
   });
 
+  // Covers: REQ-CHAT-003
+  // SCN-CHAT-003-1
   test("execute proceeds when auto-optimization is enabled and permission granted", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -135,6 +141,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.ok(mockStream.buttons.length > 0);
   });
 
+  // Covers: REQ-CHAT-004
+  // SCN-CHAT-004-1
   test("execute handles missing model gracefully", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -163,6 +171,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.strictEqual(mockOptimizer.optimizeStructuredCalled, 0);
   });
 
+  // Covers: REQ-ENH-004
+  // SCN-ENH-004-1
   test("execute resolves file references", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -212,6 +222,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-INJ-005
+  // SCN-INJ-005-2
   test("uses cached registry via ensureCatalog (not per-request discover)", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -243,6 +255,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.strictEqual(mockMcpRegistry.ensureCatalogCalled, 1);
   });
 
+  // Covers: REQ-INJ-003
+  // SCN-INJ-003-1
   test("foreign-only catalog ⇒ no MCP block and no MCP tags (default)", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -301,6 +315,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-INJ-003
+  // SCN-INJ-003-2
   test("includeForeignServers opt-in ⇒ foreign tool injected and annotated", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -361,6 +377,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-ENH-007, REQ-INJ-005
+  // SCN-INJ-005-1 SCN-ENH-007-1
   test("empty MCP catalog ⇒ optimizer prompt identical to Enhancements 1–3 only", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -425,6 +443,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
 
   // ── Phase E1: feedback capture at render time ─────────────────────────────
 
+  // Covers: REQ-CHAT-005
+  // SCN-CHAT-005-1
   test("creates a pending feedback record and threads [text, feedbackId, outcome] into buttons", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -513,6 +533,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-FBK-001
+  // SCN-FBK-001-3
   test("attaches best-effort feature-detected request.toolCalls to the record", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -547,6 +569,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.deepStrictEqual(input.observedToolCalls, ["mcp_db_query"]);
   });
 
+  // Covers: REQ-FBK-006
+  // SCN-FBK-006-3
   test("throwing feedback log ⇒ enhance still renders (fire-and-forget)", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -588,6 +612,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-CHAT-005
+  // SCN-CHAT-005-2
   test("feedback disabled ⇒ no pending record and plain button arguments", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -623,6 +649,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
 
   // ── Phase E2: optimizer response cache in front of the LLM call ────────────
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-1
   test("cache hit ⇒ optimizer LLM skipped and rendered text is the stored text byte-for-byte", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -696,6 +724,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.strictEqual(mockResponseCache.putCalls.length, 0);
   });
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-2
   test("cache miss ⇒ optimizer called and result stored under the real key", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -745,6 +775,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.strictEqual(put.intent, "ask");
   });
 
+  // Covers: REQ-FBK-006
+  // SCN-FBK-006-4
   test("throwing response cache ⇒ enhance still renders", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -780,6 +812,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     assert.ok(mockStream.buttons.length > 0, "buttons still render");
   });
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-5
   test("cache empty vs disabled ⇒ identical rendered output (no-regression)", async () => {
     // With nothing stored, the cached path IS the pre-E2 path (lookup misses,
     // optimizer runs, render). A disabled cache must be indistinguishable.
@@ -904,6 +938,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     },
   ];
 
+  // Covers: REQ-FBK-010
+  // SCN-FBK-010-1
   test("fewShotFromFeedback on ⇒ block appended after context and stamp enters the cache key", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -955,6 +991,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-FBK-010
+  // SCN-FBK-010-2
   test("fewShotFromFeedback off (default) ⇒ no block, empty stamp, store never called", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -979,6 +1017,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-FBK-010
+  // SCN-FBK-010-3
   test("few-shot on but zero confirmed examples ⇒ unchanged input + empty stamp", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);
@@ -994,6 +1034,8 @@ suite("RealtimeModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-FBK-006
+  // SCN-FBK-006-5
   test("throwing learning store ⇒ enhance still renders, no block, empty stamp", async () => {
     mockConfig.setAutoOptimize(true);
     mockConfig.setPermission(true);

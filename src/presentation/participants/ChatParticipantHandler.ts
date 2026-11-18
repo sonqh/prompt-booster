@@ -9,6 +9,7 @@ import { IConfigurationManager } from "../../shared/interfaces/IConfigurationMan
 import { ILogger } from "../../shared/interfaces/ILogger";
 import { RealtimeModeStrategy } from "../../core/strategies/RealtimeModeStrategy";
 
+// REQ-CHAT-001 REQ-CHAT-002
 export class ChatParticipantHandler {
   constructor(private container: Container) {}
 

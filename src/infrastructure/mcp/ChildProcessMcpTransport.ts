@@ -36,6 +36,7 @@ interface JsonRpcMessage {
   error?: { message?: string; code?: number };
 }
 
+// REQ-PROBE-003 REQ-PROBE-004
 export class ChildProcessMcpTransport implements IMcpProcessTransport {
   constructor(private logger: ILogger) {}
 

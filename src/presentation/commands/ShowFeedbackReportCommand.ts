@@ -23,6 +23,7 @@ import { IPromptResponseCache } from "../../core/services/PromptResponseCache";
 import { IPromptLearningStore } from "../../core/services/PromptLearningStore";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-FBK-005
 export class ShowFeedbackReportCommand {
   constructor(
     private feedbackLog: IPromptFeedbackLog,

@@ -13,6 +13,7 @@ import { IConfigChangeWatcher } from "./shared/interfaces/IConfigChangeWatcher";
 import { MCPToolRegistry } from "./core/services/MCPToolRegistry";
 import { PromptFileCodeLensProvider } from "./presentation/ui/ProcessButton";
 
+// REQ-CFG-006
 export function activate(context: vscode.ExtensionContext) {
   console.log("PromptBooster extension is now active");
 

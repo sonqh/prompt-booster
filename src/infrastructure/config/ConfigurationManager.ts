@@ -64,6 +64,7 @@ export class ConfigurationManager implements IConfigurationManager {
     await this.setConfig("modelPreference", model);
   }
 
+  // REQ-CHAT-003
   async hasPermission(): Promise<boolean> {
     const permissionGranted =
       this.context.globalState.get<boolean>("permissionGranted");
@@ -106,6 +107,7 @@ export class ConfigurationManager implements IConfigurationManager {
     return this.getConfig<boolean>("simplifiedContextMode", true);
   }
 
+  // REQ-CFG-005
   getMcpProvisioningOptions(): {
     probeServers: boolean;
     includeForeignServers: boolean;

@@ -32,12 +32,16 @@ suite("ManualModeStrategy Test Suite", () => {
     );
   });
 
+  // Covers: REQ-BOOST-002
+  // SCN-BOOST-002-2
   test("canHandle returns true for manual mode", () => {
     assert.strictEqual(strategy.canHandle("manual"), true);
     assert.strictEqual(strategy.canHandle("realtime"), false);
     assert.strictEqual(strategy.canHandle("file"), false);
   });
 
+  // Covers: REQ-BOOST-002
+  // SCN-BOOST-002-1
   test("execute does nothing if model is missing", async () => {
     const context: any = {
       documentUri: vscode.Uri.file("/test/test.prompt.md").toString(),

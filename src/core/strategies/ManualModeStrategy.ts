@@ -11,6 +11,7 @@ import { IProgressService } from "../../shared/interfaces/IProgressReporter";
 import { ModeExecutionContext } from "../../shared/types/PromptResult";
 import { OperationMode } from "../../shared/types/OperationMode";
 
+// REQ-BOOST-002
 export class ManualModeStrategy implements IModeStrategy {
   constructor(
     private optimizer: IPromptOptimizationService,

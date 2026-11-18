@@ -50,6 +50,7 @@ export function normalizeWhitespace(text: string): string {
  * defaults to the current OPTIMIZER_PROMPT_VERSION — the parameter exists so
  * tests can prove a version bump invalidates keys.
  */
+// REQ-FBK-007
 export function computeResponseCacheKey(
   rawPrompt: string,
   catalogFingerprint: string,
@@ -91,6 +92,7 @@ export interface IPromptResponseCache {
   getCacheStats(): { hits: number; misses: number; hitRate: number | null };
 }
 
+// REQ-FBK-008
 export class PromptResponseCache implements IPromptResponseCache {
   /** Ordered entries: most recently used last (LRU eviction from the front). */
   private entries: CacheEntry[] = [];

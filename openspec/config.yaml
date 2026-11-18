@@ -1,0 +1,57 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
+
+rules:
+  specs:
+    - 'Every requirement header starts with its ID, e.g. "### Requirement: REQ-ABC-001 Name". Get the ID from `specctx id new REQ ABC`.'
+    - 'Every scenario header starts with its ID, e.g. "#### Scenario: SCN-ABC-001-1 Name".'
+    - 'A requirement may end with a line "Refs: REQ-ABC-002, ADR-001" to link related IDs.'
+    - 'Requirement text stays under 500 characters. Move detail into scenarios.'
+    - 'The templates with the ID placeholders are in openspec/templates/spec-driven-ids/. Start a spec from spec.md and a task list from tasks.md there.'
+  design:
+    - 'Each decision is one bullet under "## Decisions". Add new decisions at the end.'
+  tasks:
+    - 'Every task cites at least one REQ ID in square brackets, e.g. "[REQ-ABC-001]".'
+    - 'Every task states its verification as a command in a code span after "Verify:".'
+
+operations:
+  apply:
+    guidance:
+      - 'Start each task with `specctx task start <id>` and read the bundle it prints before you read specs.'
+      - 'Tag code with the REQ ID it implements (a comment `// REQ-ABC-001`). Tag tests with `// Covers: REQ-ABC-001`.'
+      - 'Close each task only with `specctx task done <id>`. Never edit a checkbox. Never run `/opsx:apply`; run the `specctx-run` skill.'
+      - 'Run `specctx check --strict` after each task group.'
+  archive:
+    guidance:
+      - 'Run `specctx check --strict` and `openspec validate --all --strict`. Both must pass before archive.'
+      - 'Run `openspec validate --all --strict` again after archive and before push.'

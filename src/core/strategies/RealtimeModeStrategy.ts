@@ -60,6 +60,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
     );
   }
 
+  // REQ-CHAT-002 REQ-CHAT-003 REQ-CHAT-004 REQ-CHAT-006
   async execute(context: ModeExecutionContext): Promise<void> {
     const stream = context.metadata?.stream as vscode.ChatResponseStream;
     const request = context.metadata?.request as vscode.ChatRequest;
@@ -167,6 +168,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
   // ─── Response rendering ────────────────────────────────────────────────────
 
+  // REQ-CHAT-005
   private renderInteractiveResponse(
     original: string,
     optimized: string,
@@ -278,6 +280,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
    * examples are part of the cache key: same examples ⇒ same key (cache hit),
    * new confirmed feedback ⇒ different stamp ⇒ guaranteed miss.
    */
+  // REQ-FBK-006 REQ-FBK-008
   private async optimizeWithResponseCache(
     rawPrompt: string,
     promptWithContext: string,
@@ -313,6 +316,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
    * user must make explicitly. Any learning-store failure degrades to no
    * block + empty stamp; the enhance must still run.
    */
+  // REQ-FBK-010
   private async loadFewShot(): Promise<{ stamp: string; block: string }> {
     if (!this.learningStore) return { stamp: "", block: "" };
     try {
@@ -395,6 +399,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
   }
 
   /** Create the pending feedback record; never throws across the enhance. */
+  // REQ-FBK-001
   private captureFeedback(
     request: vscode.ChatRequest,
     enhancedPrompt: string,
@@ -432,6 +437,7 @@ export class RealtimeModeStrategy implements IModeStrategy {
 
   // ─── Prompt assembly (Enhancements 1–4) ───────────────────────────────────
 
+  // REQ-ENH-007 REQ-INJ-003 REQ-INJ-005
   private async buildPromptWithContext(
     prompt: string,
     request: vscode.ChatRequest,

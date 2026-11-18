@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { IModeStrategy } from "../../core/strategies/IModeStrategy";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-BOOST-001
 export class BoostCommand {
   constructor(
     private manualModeStrategy: IModeStrategy,

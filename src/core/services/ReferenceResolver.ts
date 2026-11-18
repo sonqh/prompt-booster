@@ -29,6 +29,7 @@ export class ReferenceResolver {
    * Resolve explicit references from request.references (drag-and-drop,
    * autocomplete-selected variables, etc.)
    */
+  // REQ-ENH-004
   async resolve(refs: readonly vscode.ChatPromptReference[]): Promise<string> {
     const resolved: ResolvedReference[] = [];
 
@@ -73,6 +74,7 @@ export class ReferenceResolver {
    * Parse inline reference tokens typed directly in the prompt.
    * Returns a cleaned prompt (tokens replaced) and the resolved content list.
    */
+  // REQ-ENH-003
   async resolveInlineTokens(prompt: string): Promise<{
     cleanPrompt: string;
     resolved: ResolvedReference[];

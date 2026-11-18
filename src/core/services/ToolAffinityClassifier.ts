@@ -122,6 +122,7 @@ interface McpScoreBreakdown {
 }
 
 /** Score one MCP tool against the prompt per the scorer v2 rules. */
+// REQ-INJ-001
 function scoreMcpTool(
   tool: MCPToolDescriptor,
   promptLower: string,
@@ -181,6 +182,7 @@ const TOOL_PLACEMENT_GUIDANCE: Record<CopilotTool, string> = {
  * @param mcpCatalog  Optional list of MCP tools discovered from workspace config.
  *                    Only tools with `enabled === true` are scored.
  */
+// REQ-ENH-005 REQ-ENH-006 REQ-INJ-002 REQ-INJ-006
 export function classifyTools(
   prompt: string,
   mcpCatalog: MCPToolDescriptor[] = [],

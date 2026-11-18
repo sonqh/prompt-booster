@@ -45,6 +45,8 @@ const disabledTool = (
 suite("ToolAffinityClassifier", () => {
   // ── Built-in tool detection ──────────────────────────────────────────────
 
+  // Covers: REQ-ENH-005
+  // SCN-ENH-005-1
   test("detects #editor for 'fix the bug in this file'", () => {
     const { suggestedTools } = classifyTools("fix the bug in this file");
     assert.ok(suggestedTools.includes("#editor"), "should suggest #editor");
@@ -57,6 +59,8 @@ suite("ToolAffinityClassifier", () => {
     assert.ok(suggestedTools.includes("@workspace"), "should suggest @workspace");
   });
 
+  // Covers: REQ-ENH-005
+  // SCN-ENH-005-2
   test("detects @terminal + #terminalLastCommand for 'run the tests and check the error'", () => {
     const { suggestedTools } = classifyTools(
       "run the tests and check the error",
@@ -80,6 +84,8 @@ suite("ToolAffinityClassifier", () => {
     assert.ok(suggestedTools.includes("@vscode"), "should suggest @vscode");
   });
 
+  // Covers: REQ-ENH-005
+  // SCN-ENH-005-3
   test("returns empty lists for a prompt with no signals", () => {
     const { suggestedTools, mcpTools, toolAnnotations } = classifyTools(
       "hello world",
@@ -92,6 +98,8 @@ suite("ToolAffinityClassifier", () => {
   // ── MCP tool scoring (scorer v2 — plan section 7 worked examples) ─────────
 
   // Worked example 1: single generic token match must NOT qualify (F3 fix).
+  // Covers: REQ-INJ-001
+  // SCN-INJ-001-1
   test("rejects a tool matching only one generic description token", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
@@ -105,6 +113,8 @@ suite("ToolAffinityClassifier", () => {
   });
 
   // Worked example 2: multiple matched content tokens qualify.
+  // Covers: REQ-INJ-001
+  // SCN-INJ-001-2
   test("qualifies a tool when several description tokens match", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
@@ -117,6 +127,8 @@ suite("ToolAffinityClassifier", () => {
   });
 
   // Worked example 3: the "Read a file" false-positive class (F3).
+  // Covers: REQ-INJ-001
+  // SCN-INJ-001-3
   test("rejects filesystem tool for a prompt whose 'file' token is stopworded", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool("fs-mcp", "read_file", "Read a file from the local filesystem"),
@@ -130,6 +142,8 @@ suite("ToolAffinityClassifier", () => {
   });
 
   // Worked example 4: whole-word server-name bonus outranks description score.
+  // Covers: REQ-INJ-002
+  // SCN-INJ-002-2
   test("whole-word server name in the prompt qualifies and ranks first", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
@@ -146,6 +160,8 @@ suite("ToolAffinityClassifier", () => {
   });
 
   // Worked example 5: laundry-list descriptions are penalized by lengthNorm.
+  // Covers: REQ-INJ-001
+  // SCN-INJ-001-5
   test("penalizes laundry-list descriptions in favor of a focused tool", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool(
@@ -166,6 +182,8 @@ suite("ToolAffinityClassifier", () => {
     );
   });
 
+  // Covers: REQ-INJ-001
+  // SCN-INJ-001-4
   test("does NOT match disabled MCP tool even when it would qualify", () => {
     const catalog: MCPToolDescriptor[] = [
       disabledTool("postgres-mcp", "query_db", "Execute SQL queries against the project database"),
@@ -186,6 +204,8 @@ suite("ToolAffinityClassifier", () => {
     assert.deepStrictEqual(mcpTools, []);
   });
 
+  // Covers: REQ-INJ-002
+  // SCN-INJ-002-1
   test("caps MCP results at 5", () => {
     const catalog: MCPToolDescriptor[] = Array.from({ length: 10 }, (_, i) =>
       enabledTool("data-mcp", `query_${i}`, "Query database records with SQL"),
@@ -194,6 +214,8 @@ suite("ToolAffinityClassifier", () => {
     assert.ok(mcpTools.length <= 5, `expected ≤5 results, got ${mcpTools.length}`);
   });
 
+  // Covers: REQ-INJ-002
+  // SCN-INJ-002-3
   test("deterministic: identical input yields identical output order", () => {
     const catalog: MCPToolDescriptor[] = [
       enabledTool("alpha-mcp", "query_db", "Query the project database"),
@@ -209,11 +231,15 @@ suite("ToolAffinityClassifier", () => {
 
   // ── toolAnnotations ───────────────────────────────────────────────────────
 
+  // Covers: REQ-ENH-006
+  // SCN-ENH-006-1
   test("toolAnnotations is empty when nothing matches", () => {
     const { toolAnnotations } = classifyTools("hello world", []);
     assert.strictEqual(toolAnnotations, "");
   });
 
+  // Covers: REQ-ENH-006
+  // SCN-ENH-006-2
   test("toolAnnotations contains placement guidance for matched tools", () => {
     const { toolAnnotations } = classifyTools("fix the error in this file");
     assert.ok(

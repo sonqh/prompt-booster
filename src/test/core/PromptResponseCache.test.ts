@@ -42,18 +42,24 @@ suite("PromptResponseCache", () => {
     );
   });
 
+  // Covers: REQ-FBK-007
+  // SCN-FBK-007-1
   test("whitespace-normalized prompt variants share a key", () => {
     const a = computeResponseCacheKey("fix   the\nbug", "fp", "");
     const b = computeResponseCacheKey(" fix\tthe bug ", "fp", "");
     assert.strictEqual(a, b);
   });
 
+  // Covers: REQ-FBK-007
+  // SCN-FBK-007-2
   test("case-differing prompts get different keys (conservative)", () => {
     const a = computeResponseCacheKey("Fix the bug", "fp", "");
     const b = computeResponseCacheKey("fix the bug", "fp", "");
     assert.notStrictEqual(a, b);
   });
 
+  // Covers: REQ-FBK-007
+  // SCN-FBK-007-3
   test("catalog fingerprint change ⇒ different key", () => {
     assert.notStrictEqual(
       computeResponseCacheKey("fix the bug", "fp1", ""),
@@ -130,6 +136,8 @@ suite("PromptResponseCache", () => {
     assert.strictEqual(hit.enhancedPrompt, "OUT");
   });
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-3
   test("TTL expiry ⇒ miss", async () => {
     const config = new MockConfigurationManager();
     config.setFeedbackLearningOptions({ cacheTtlDays: 7 });
@@ -148,6 +156,8 @@ suite("PromptResponseCache", () => {
     assert.strictEqual(hit, undefined, "expired entry must be a miss");
   });
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-4
   test("LRU cap evicts the least recently used entry", async () => {
     const config = new MockConfigurationManager();
     config.setFeedbackLearningOptions({ cacheMaxEntries: 3 });
@@ -171,6 +181,8 @@ suite("PromptResponseCache", () => {
     assert.ok(await cache.get(k4), "newest entry present");
   });
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-6
   test("corrupt payload ⇒ miss without throwing", async () => {
     const { cache, state } = makeHarness();
     state.workspace.set("promptbooster.responseCache.entries", "not-an-array");
@@ -214,6 +226,8 @@ suite("PromptResponseCache", () => {
     assert.strictEqual(await cache.get("k-bad-hitcount"), undefined);
   });
 
+  // Covers: REQ-FBK-008
+  // SCN-FBK-008-5
   test("disabled ⇒ always miss and put is a no-op", async () => {
     const config = new MockConfigurationManager();
     config.setFeedbackLearningOptions({ cacheEnabled: false });

@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { FileModeStrategy } from "../../core/strategies/FileModeStrategy";
 import { ILogger } from "../../shared/interfaces/ILogger";
 
+// REQ-FILE-003
 export class ProcessFileCommand {
   constructor(
     private fileModeStrategy: FileModeStrategy,

@@ -45,6 +45,8 @@ suite("FileModeStrategy Test Suite", () => {
     assert.strictEqual(strategy.canHandle("realtime"), false);
   });
 
+  // Covers: REQ-FILE-001
+  // SCN-FILE-001-1
   test("generatePromptFile creates file with optimized content", async () => {
     const original = "Create a login form";
     const optimized = "Optimized: Create a login form";

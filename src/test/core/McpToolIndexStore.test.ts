@@ -33,6 +33,8 @@ const HOUR = 60 * 60 * 1000;
 suite("McpToolIndexStore", () => {
   // ── Manual index file ──────────────────────────────────────────────────────
 
+  // Covers: REQ-DISC-010
+  // SCN-DISC-010-1
   test("manual index round-trips", async () => {
     const { store } = makeStore();
     const entries = [
@@ -60,6 +62,8 @@ suite("McpToolIndexStore", () => {
     );
   });
 
+  // Covers: REQ-DISC-010
+  // SCN-DISC-010-2
   test("wrong-shaped manual index entries are filtered defensively", async () => {
     const { store, setFile } = makeStore();
     setFile(
@@ -88,6 +92,8 @@ suite("McpToolIndexStore", () => {
 
   // ── Probe cache ────────────────────────────────────────────────────────────
 
+  // Covers: REQ-PROBE-005
+  // SCN-PROBE-005-1
   test("probe cache hits for the same command+args", async () => {
     const { store } = makeStore();
     await store.setProbeCache("node", ["a.js"], [
@@ -99,6 +105,8 @@ suite("McpToolIndexStore", () => {
     assert.strictEqual(hit[0].name, "t1");
   });
 
+  // Covers: REQ-PROBE-005
+  // SCN-PROBE-005-2
   test("probe cache fingerprint mismatch is a miss", async () => {
     const { store } = makeStore();
     await store.setProbeCache("node", ["a.js"], [{ name: "t1" }]);
@@ -119,6 +127,8 @@ suite("McpToolIndexStore", () => {
     );
   });
 
+  // Covers: REQ-PROBE-005
+  // SCN-PROBE-005-3
   test("probe cache TTL expiry (24h) is a miss", async () => {
     const { store, state } = makeStore();
     const fingerprint = probeCacheFingerprint("node", ["a.js"]);
@@ -131,6 +141,8 @@ suite("McpToolIndexStore", () => {
     assert.strictEqual(await store.getProbeCache("node", ["a.js"]), undefined);
   });
 
+  // Covers: REQ-PROBE-005
+  // SCN-PROBE-005-4
   test("corrupt probe-cache state degrades to empty (no throw)", async () => {
     const { store, state } = makeStore();
     state.workspace.set(PROBE_CACHE_STATE_KEY, "garbage-not-an-object");

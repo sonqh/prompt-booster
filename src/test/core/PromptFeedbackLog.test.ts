@@ -47,6 +47,8 @@ async function settle(): Promise<void> {
 suite("PromptFeedbackLog", () => {
   // ── Lifecycle transitions ──────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-001
+  // SCN-FBK-001-1
   test("createPending returns an id and persists a pending record", async () => {
     const { log, state } = makeHarness();
     const id = log.createPending(pendingInput());
@@ -58,6 +60,8 @@ suite("PromptFeedbackLog", () => {
     assert.ok(stored?.some((r) => r.feedbackId === id && r.outcome === "pending"));
   });
 
+  // Covers: REQ-FBK-001
+  // SCN-FBK-001-2
   test("createPending returns undefined when feedback capture is disabled", () => {
     const config = new MockConfigurationManager();
     config.setFeedbackLearningOptions({ feedbackEnabled: false });
@@ -71,6 +75,8 @@ suite("PromptFeedbackLog", () => {
     );
   });
 
+  // Covers: REQ-FBK-002
+  // SCN-FBK-002-1
   test("pending → accept / reject / edit-opened transitions land in resolved", async () => {
     const { log } = makeHarness();
     const acceptId = log.createPending(pendingInput({ rawPrompt: "a" }));
@@ -88,6 +94,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.funnel["edit-finalized"], 0);
   });
 
+  // Covers: REQ-FBK-002
+  // SCN-FBK-002-2
   test("edit-opened upgrades to edit-finalized with the final text", () => {
     const { log } = makeHarness();
     const id = log.createPending(pendingInput());
@@ -98,6 +106,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.funnel["edit-opened"], 0);
   });
 
+  // Covers: REQ-FBK-002
+  // SCN-FBK-002-3
   test("terminal outcomes are immutable (accept never re-resolves)", () => {
     const { log } = makeHarness();
     const id = log.createPending(pendingInput());
@@ -110,6 +120,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.funnel["edit-finalized"], 0);
   });
 
+  // Covers: REQ-FBK-002
+  // SCN-FBK-002-4
   test("resolve and finalizeEdit with unknown ids are no-ops", () => {
     const { log } = makeHarness();
     log.resolve("nope", "accept");
@@ -119,6 +131,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.funnel["edit-finalized"], 0);
   });
 
+  // Covers: REQ-FBK-002
+  // SCN-FBK-002-5
   test("finalizeEdit on a pending (not edit-opened) record is a no-op", () => {
     const { log } = makeHarness();
     const id = log.createPending(pendingInput());
@@ -130,6 +144,8 @@ suite("PromptFeedbackLog", () => {
 
   // ── Ring buffer + pending TTL ──────────────────────────────────────────────
 
+  // Covers: REQ-FBK-003
+  // SCN-FBK-003-1
   test("resolved records are capped at historyLimit (ring buffer)", async () => {
     const config = new MockConfigurationManager();
     config.setFeedbackLearningOptions({ historyLimit: 3 });
@@ -149,6 +165,8 @@ suite("PromptFeedbackLog", () => {
     );
   });
 
+  // Covers: REQ-FBK-003
+  // SCN-FBK-003-2
   test("pending records expire lazily (TTL) and cannot be resolved afterwards", async () => {
     const { log, state } = makeHarness();
     const id = log.createPending(pendingInput());
@@ -170,6 +188,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.pending, 0, "expired pending dropped from the funnel");
   });
 
+  // Covers: REQ-FBK-003
+  // SCN-FBK-003-3
   test("state survives a reload: resolved records reload from workspace state", async () => {
     const { log, state } = makeHarness();
     const id = log.createPending(pendingInput());
@@ -188,6 +208,8 @@ suite("PromptFeedbackLog", () => {
 
   // ── Report aggregation ─────────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-005
+  // SCN-FBK-005-1
   test("missing state ⇒ empty aggregates (no division errors)", () => {
     const { log } = makeHarness();
     const report = log.getReport();
@@ -202,6 +224,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.retentionRate, null);
   });
 
+  // Covers: REQ-FBK-005
+  // SCN-FBK-005-2
   test("acceptance rate = accept / (accept + reject)", () => {
     const { log } = makeHarness();
     for (let i = 0; i < 3; i++) {
@@ -211,6 +235,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(log.getReport().acceptanceRate, 0.75);
   });
 
+  // Covers: REQ-FBK-005
+  // SCN-FBK-005-3
   test("retention rate counts retained-strong vs removed over edit-finalized only", () => {
     const { log } = makeHarness();
     // edit-finalized: db.query retained, db.explain removed
@@ -229,6 +255,8 @@ suite("PromptFeedbackLog", () => {
     assert.strictEqual(report.retentionRate, 0.5);
   });
 
+  // Covers: REQ-FBK-005
+  // SCN-FBK-005-4
   test("observed tool calls precision is reported when observations exist", () => {
     const { log } = makeHarness();
     const id = log.createPending(
@@ -274,6 +302,8 @@ suite("PromptFeedbackLog", () => {
 
   // ── Failure posture ────────────────────────────────────────────────────────
 
+  // Covers: REQ-FBK-006
+  // SCN-FBK-006-1
   test("IStateRepository throw ⇒ logged, not propagated", async () => {
     const { log, logger, state } = makeHarness();
     state.failOnWrite = true;
@@ -286,6 +316,8 @@ suite("PromptFeedbackLog", () => {
     );
   });
 
+  // Covers: REQ-FBK-006
+  // SCN-FBK-006-2
   test("state read throw ⇒ empty aggregates, not propagated", () => {
     const state = new MockStateRepository();
     state.getWorkspace = (() => {
@@ -320,6 +352,8 @@ Instructions:
 -->
 `;
 
+    // Covers: REQ-FBK-012
+    // SCN-FBK-012-1
     test("extracts the feedback id from the leading comment block", () => {
       assert.strictEqual(
         extractFeedbackId(file("abc-123")),
@@ -331,6 +365,8 @@ Instructions:
       assert.strictEqual(extractFeedbackId(file()), undefined);
     });
 
+    // Covers: REQ-FBK-012
+    // SCN-FBK-012-2
     test("ignores ids outside the leading comment block", () => {
       const content =
         "<!--\nplain header\n-->\n\nPromptBooster-Feedback-Id: not-a-real-tag";
@@ -342,6 +378,8 @@ Instructions:
       assert.strictEqual(extractFeedbackId(content), "id-with-trailing");
     });
 
+    // Covers: REQ-FBK-012
+    // SCN-FBK-012-3
     test("stripHtmlComments removes all comments and trims (processPromptFile rule)", () => {
       const stripped = stripHtmlComments(file("abc"));
       assert.ok(!stripped.includes("<!--"));
@@ -364,6 +402,8 @@ suite("deriveRefLabels", () => {
     timestamp: 0,
   };
 
+  // Covers: REQ-FBK-004
+  // SCN-FBK-004-1
   test("edit-finalized: qualifiedName present ⇒ retained-strong", () => {
     const labels = deriveRefLabels({
       ...base,
@@ -377,6 +417,8 @@ suite("deriveRefLabels", () => {
     });
   });
 
+  // Covers: REQ-FBK-004
+  // SCN-FBK-004-2
   test("edit-finalized: both parts present ⇒ retained even without the dotted form", () => {
     const labels = deriveRefLabels({
       ...base,
@@ -390,6 +432,8 @@ suite("deriveRefLabels", () => {
     });
   });
 
+  // Covers: REQ-FBK-004
+  // SCN-FBK-004-3
   test("accept ⇒ all retained-weak; reject ⇒ all removed", () => {
     assert.deepStrictEqual(
       deriveRefLabels({ ...base, outcome: "accept" }).map((l) => l.label),
@@ -401,6 +445,8 @@ suite("deriveRefLabels", () => {
     );
   });
 
+  // Covers: REQ-FBK-004
+  // SCN-FBK-004-4
   test("pending / edit-opened ⇒ no per-ref labels", () => {
     assert.deepStrictEqual(deriveRefLabels({ ...base, outcome: "pending" }), []);
     assert.deepStrictEqual(

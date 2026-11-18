@@ -1,0 +1,56 @@
+# spec-ctx configuration. Every key is optional. A missing key takes its default.
+
+[scan]
+# Main specs. Markdown files with requirement and scenario headers.
+specs = ["openspec/specs/**/*.md"]
+# Active and archived OpenSpec changes.
+changes = ["openspec/changes/**/*.md"]
+# Decision records.
+decisions = ["decisions/*.md"]
+# Source files that carry code tags. A code tag is a comment with a REQ ID.
+code = ["src/**"]
+# Test files that carry Covers tags and scenario IDs.
+tests = ["src/test/**"]
+# Paths that the scan skips.
+ignore = ["src/test/fixtures/**"]
+
+[ids]
+# CORE and PLUG are reserved for the parked designs under openspec/parked/. No active spec uses them.
+# Capability codes. check reports a REQ whose code is not in this list. id new accepts only these codes.
+# An empty list turns the rule off, and id new accepts any code of 2 to 6 upper case letters.
+caps = ["ENH", "CHAT", "BOOST", "FILE", "CFG", "DISC", "INJ", "PROBE", "FBK", "REL", "SKILL", "CORE", "PLUG"]
+# Pattern of the task number in a tasks.md checkbox.
+task_pattern = '\d+\.\d+'
+# true makes adopt and id new write the ID in square brackets, [REQ-UA-001], as OpenSpec PR #1979 reads it.
+# false writes the bare form, REQ-UA-001. The scan reads both forms.
+brackets = false
+
+[bundle]
+# Default character budget of a bundle.
+budget = 8000
+# Default depth of related entries in a bundle.
+depth = 1
+
+[verify]
+# Seconds before task done stops a Verify command.
+timeout_s = 600
+
+[gate]
+# Markdown globs that gate lints with the tells and STE linters. Empty means no lint.
+# To turn it on, set markdown = ["openspec/**/*.md", "decisions/*.md", "docs/**/*.md", "*.md"]. The spec-ctx repository opts in.
+markdown = []
+# The command that gate runs for openspec validate. Set it to "openspec" for a global install or a fork,
+# or pin a version. The env var SPECCTX_OPENSPEC overrides it for one run.
+openspec = "npx -y @fission-ai/openspec@2.1.0"
+# The ref whose merge base with HEAD holds the baseline that gate compares with. New entries fail the gate.
+base = "origin/main"
+
+[loop]
+# Verify failures on one task before task done writes a question and the loop stops.
+max_attempts = 3
+# "ask" stops before archive for a human. "auto" lets the loop archive when the gate passes.
+archive = "ask"
+
+[cli]
+# The prefix of every command that spec-ctx prints for you to run. init wrote it because it ran under npx.
+run = "npx -y spec-ctx@0.6.0"
