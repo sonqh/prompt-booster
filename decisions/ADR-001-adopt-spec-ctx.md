@@ -32,36 +32,36 @@ Capability codes:
 | INJ | `mcp-tool-injection` | yes |
 | PROBE | `mcp-probe-security` | yes |
 | FBK | `prompt-feedback-learning` | yes |
-| REL | `release-and-packaging` | no, change 001 adds it and change 004 extends it |
-| SKILL | `boost-skill` | no, change 005 adds it |
-| CORE | `host-neutral-core` | no, parked under `openspec/parked/` (ADR-003) |
-| PLUG | `claude-code-boost-plugin` | no, parked under `openspec/parked/` (ADR-003) |
+| REL | `release-and-packaging` | no, change 001 adds it |
+| SKILL | `boost-skill` | no, change 002 adds it |
+| CORE | `host-neutral-core` | no, parked under `openspec/parked/` |
+| PLUG | `claude-code-boost-plugin` | no, history under `openspec/parked/`, replaced by ADR-004 |
 
-Active changes, in order: `001-release-hygiene`, `002-mcp-v2-closeout`, `003-retire-operation-modes`, `004-marketplace-launch`, `005-boost-skill-probe`. ADR-003 holds the roadmap.
+Active changes, in order: `001-repo-honesty`, `002-plugin-spike`, `003-boost-skill-plugin`, `004-evidence-and-release`. ADR-004 holds the direction: one agent plugin with one skill, a frozen extension, a parked engine. ADR-003 is superseded in part. `openspec/parked/README.md` lists the parked designs.
 
 ## Legacy document map
 
 | Legacy file | Status | Where the content lives now |
 | --- | --- | --- |
-| `docs/promptbooster-enhancement-spec.md` | implemented | ENH (Enhancements 1 to 3), DISC and INJ (Enhancement 4), CHAT |
+| `docs/promptbooster-enhancement-spec.md` | implemented in the extension, which ADR-004 freezes | ENH (Enhancements 1 to 3), DISC and INJ (Enhancement 4), CHAT |
 | `docs/promptbooster-intelligent-enhancement.md` | duplicate of the file above, one link differs | same as above |
 | `docs/plan-promptbooster-mcp-awareness.md` | superseded by the v2 plan (its own line 3 says so) | DISC, INJ |
-| `docs/plans/mcp-aware-tool-provisioning-v2.md` | implemented, except the golden set and the secret and trust rules. The background probe is cut | DISC, INJ, PROBE, FBK. Open items: change `002-mcp-v2-closeout`. Criterion 8 (core with no `vscode`): parked, `openspec/parked/host-neutral-core`. Decisions: ADR-002 |
-| `docs/plans/claude-code-plugin-design.md` | approved 2026-09-09, not started, parked by ADR-003 | `openspec/parked/claude-code-boost-plugin`. The probe that can reopen it: change `005-boost-skill-probe` |
+| `docs/plans/mcp-aware-tool-provisioning-v2.md` | implemented in the frozen extension, except the golden set and the secret and trust rules | DISC, INJ, PROBE, FBK. Open items: parked, `openspec/parked/mcp-v2-closeout`. Decisions: ADR-002 |
+| `docs/plans/claude-code-plugin-design.md` | approved 2026-09-09, not started, replaced by ADR-004 | history: `openspec/parked/claude-code-boost-plugin`. The plugin that replaces it: changes `002-plugin-spike` and `003-boost-skill-plugin` |
 | `docs/meta-mcp-orchestrator-spec.md` | archived by ADR-003, no code | none |
 | `docs/meta-mcp-orchestrator.md` | duplicate of the file above, two links differ | none |
 | `docs/plan-meta-mcp-orchestrator.md` | archived by ADR-003, no code | none |
 | `docs/architecture_diagrams.md` | history of the 0.2.0 refactor | none. The layers are in `AGENTS.md` |
 | `implementation_plan.md` | implemented working notes for Enhancements 1 to 4 | ENH, DISC, INJ |
 | `walkthrough.md` | implemented working notes, test counts are stale | ENH, DISC, INJ |
-| `README.md` | current user document, with wrong claims | changes `001-release-hygiene`, `003-retire-operation-modes`, and `004-marketplace-launch` correct it |
-| `CHANGELOG.md` | current, entries 0.2.3 and 0.2.4 are missing | change `001-release-hygiene` |
-| `AGENTS.md` | current agent guide | gains a "Specs and workflow" section |
+| `README.md` | current user document, with wrong claims and no status | changes `001-repo-honesty` and `004-evidence-and-release` correct it |
+| `CHANGELOG.md` | current, entries 0.2.3 and 0.2.4 are missing | change `001-repo-honesty` |
+| `AGENTS.md` | current agent guide, with three false lines | change `001-repo-honesty` corrects them. It has a "Specs and workflow" section |
 
 ## Consequences
 
 - `specctx check --strict` reports a main requirement that no test covers. The requirements with no test on 2026-11-18 are in `.ctx/baseline.json`. The baseline can only shrink.
-- Operation modes are removed by change `003-retire-operation-modes`, which needs the owner. The Meta-MCP orchestrator has no change. ADR-003 archives it.
+- The extension is frozen by ADR-004. The designs that would change it are parked. The Meta-MCP orchestrator has no change. ADR-003 archives it.
 - The two duplicate files stay until the owner says which copy to delete.
 
-Refs: ADR-002, ADR-003
+Refs: ADR-002, ADR-003, ADR-004

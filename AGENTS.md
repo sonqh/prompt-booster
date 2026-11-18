@@ -116,11 +116,11 @@ The design source of truth is the OpenSpec tree, managed with the `spec-ctx` CLI
 
 Commands: `specctx` is `npx -y spec-ctx@0.6.0`. `openspec` is `npx -y @fission-ai/openspec@2.1.0`.
 
-- **Main specs:** `openspec/specs/<capability>/spec.md`. They state only behavior that the code has today. One folder per capability: ENH `prompt-enhancement-pipeline`, CHAT `chat-participant-realtime-mode`, BOOST `manual-boost-mode`, FILE `file-prompt-mode`, CFG `extension-settings-and-commands`, DISC `mcp-tool-discovery`, INJ `mcp-tool-injection`, PROBE `mcp-probe-security`, FBK `prompt-feedback-learning`.
+- **Main specs:** `openspec/specs/<capability>/spec.md`. They state only behavior that the code has today. All nine describe the frozen extension. One folder per capability: ENH `prompt-enhancement-pipeline`, CHAT `chat-participant-realtime-mode`, BOOST `manual-boost-mode`, FILE `file-prompt-mode`, CFG `extension-settings-and-commands`, DISC `mcp-tool-discovery`, INJ `mcp-tool-injection`, PROBE `mcp-probe-security`, FBK `prompt-feedback-learning`.
 - **Changes:** `openspec/changes/<NNN-name>/` holds `proposal.md`, `design.md`, `tasks.md`, and delta specs. Work that is not done lives here, never in a main spec.
-  Active changes, in this order: `001-release-hygiene`, `002-mcp-v2-closeout`, `003-retire-operation-modes` (needs the owner), `004-marketplace-launch`, `005-boost-skill-probe`. The roadmap is in [decisions/ADR-003-roadmap-to-first-release.md](decisions/ADR-003-roadmap-to-first-release.md).
-- **Parked designs:** `openspec/parked/` holds the host-neutral core and the Claude Code plugin port. They have no open task. Do not work on them. See `openspec/parked/README.md`.
-- **Decisions:** `decisions/ADR-NNN-*.md`. Until the parked core design is done, do not write that `src/core` has no `vscode` import. Seven core files import it.
+  Active changes, in this order: `001-repo-honesty`, `002-plugin-spike`, `003-boost-skill-plugin`, `004-evidence-and-release`. The direction is in [decisions/ADR-004-plugin-first.md](decisions/ADR-004-plugin-first.md): the product is one agent plugin with one skill, `/prompt-booster:boost`, in `plugin/`. The VS Code extension under `src/` is frozen. Do not add a feature to it.
+- **Parked designs:** `openspec/parked/` holds designs with no open task: the MCP v2 closeout (golden set, fingerprint fix, trust gate), the operation-mode removal, the Marketplace launch, the old release hygiene, the host-neutral core, and the old Claude Code plugin port (history). Do not work on them. See `openspec/parked/README.md`.
+- **Decisions:** `decisions/ADR-NNN-*.md`. ADR-004 supersedes ADR-003 in part. Do not write that `src/core` has no `vscode` import. Seven core files import it.
 - **IDs:** a requirement is `REQ-<CAP>-NNN`. A scenario is `SCN-<CAP>-NNN-n`. An ID never changes. Get a new one from `specctx id new REQ <CAP>`.
 
 Read context with the CLI. Do not read `openspec/specs/` file by file:
@@ -148,4 +148,4 @@ Tags link code and tests to requirements:
 - When you move code, move its tag with it. `specctx check --strict` reports a main requirement that no test covers.
 - `.ctx/baseline.json` lists the requirements that had no test on 2026-11-18. The list can only shrink. Run `specctx baseline prune` after you add a test.
 
-Open owner questions are in `.ctx/questions.json`. Do not start work that depends on an open question. Tasks marked `(owner)` need a person. Prepare the file, then stop and ask.
+Open owner questions are in `.ctx/questions.json`. Do not start work that depends on an open question. Tasks marked `(owner)` need a person. Prepare the file, then stop and ask. The spike, the A/B run, the tag, and the awesome-copilot pull request are owner work.

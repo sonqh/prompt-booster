@@ -49,48 +49,111 @@
     "asked_at": "2026-11-18T05:25:26.613Z",
     "task": "none",
     "text": "Retire the operation modes? Change 003-retire-operation-modes removes four settings (promptBooster.operationMode, simplifiedContextMode, autoOptimize, showPreview) and four commands (Switch Operation Mode, Toggle Auto-Optimization, Test File Generation, Test Realtime Mode). No code selects behavior by the mode, two of the commands have no handler, and showPreview is never read. autoOptimize and simplifiedContextMode must go with operationMode, because without it autoOptimize does nothing and simplifiedContextMode=false silently turns the chat participant off. What stays: @PromptBooster, right-click Boost, Refine in File, and Process, which then shows for every .prompt.md file. Users can see this removal, so the change does not start without your yes. Do you approve it?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:12.939Z"
   },
   {
     "n": 7,
     "asked_at": "2026-11-18T05:25:27.500Z",
     "task": "none",
     "text": "Archive the Meta-MCP orchestrator? ADR-003 proposes to archive it: three documents (docs/meta-mcp-orchestrator-spec.md, its duplicate, and docs/plan-meta-mcp-orchestrator.md with 5 phases) describe a separate Node MCP server with parallel worker agents, no code exists, and AGENTS.md line 7 still says it drives current work. If you agree, the docs stay as history, no change is created, and the AGENTS.md line is corrected. Do you agree, or do you still plan to build it?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:13.942Z"
   },
   {
     "n": 8,
     "asked_at": "2026-11-18T05:25:28.446Z",
     "task": "none",
     "text": "Replace the approved Claude Code plugin port with a skill probe? You approved docs/plans/claude-code-plugin-design.md on 2026-09-09 (a CLI, three hooks, file stores; it also needs a refactor of src/core, because 7 core files import vscode). ADR-003 proposes to park that port and the core refactor under openspec/parked/, and to ship first one hand-written, instruction-only /boost skill (change 005-boost-skill-probe, about 2 evenings, after the store release). The port is reopened only if the skill repository gets more unique cloners or stars in 30 days than the extension gets installs or stars in its first 30 days. Do you accept this replacement?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:14.886Z"
   },
   {
     "n": 9,
     "asked_at": "2026-11-18T05:25:29.326Z",
     "task": "none",
     "text": "Publisher id: is 'promptbooster' (the publisher in package.json) registered to you on the VS Code Marketplace and free as a namespace on Open VSX? If not, change 004-marketplace-launch switches the publisher to 'sonqh'. The extension id that users install changes with it (promptbooster.promptbooster or sonqh.promptbooster), so this must be fixed before the first release and cannot change after it. Which id do we use?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:15.890Z"
   },
   {
     "n": 10,
     "asked_at": "2026-11-18T05:25:30.233Z",
     "task": "none",
     "text": "Accept the day-90 kill rule? ADR-003 proposes: 90 days after version 0.3.0 is live, if the extension has under 50 installs over VS Code Marketplace and Open VSX together and zero feedback from a person outside the project (issue, discussion, review, or message), the project is frozen and gets security fixes only. The same ADR proposes no paid tier before day 90, no remote telemetry, and no Agensi listing as a launch channel. Do you accept the kill rule and these three limits?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:16.850Z"
   },
   {
     "n": 11,
     "asked_at": "2026-11-18T05:25:31.107Z",
     "task": "none",
     "text": "Delete the duplicate docs and the merged remote branches? docs/promptbooster-intelligent-enhancement.md equals docs/promptbooster-enhancement-spec.md except one link on line 35, and docs/meta-mcp-orchestrator.md equals docs/meta-mcp-orchestrator-spec.md except two link targets. AGENTS.md links the '-spec' names. ADR-001 keeps all legacy docs as history and deletes nothing without you. May we delete the two non-spec copies? And may the remote branches refactor/model-switching (verified merged into main) and feat/tool-aware-transformation (merged by PR #2, not verified by a command) be deleted?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:17.807Z"
   },
   {
     "n": 12,
     "asked_at": "2026-11-18T05:25:32.049Z",
     "task": "none",
     "text": "Will you do the two manual evidence steps yourself? (1) Change 002-mcp-v2-closeout needs you to review about 20 golden-set labels (prompt -> expected MCP tools) in src/test/fixtures/mcp-golden-prompts.json before any scorer tuning; CI then gates precision >= 0.8 and recall >= 0.6. (2) Change 004-marketplace-launch needs one manual A/B run: 20 prompts, each sent to Copilot agent mode raw and boosted, with the first tool call recorded in docs/eval/ab-manual-0.3.0.csv. Pass means boosted is right on at least 3 more prompts than raw and worse on at most 2; any other result is a fail, with no rerun, and the store listing then uses the weaker 'Structured Prompts' text. No agent can do either step. Will you do both, and about when?",
+    "status": "resolved",
+    "answer": "Not answered by the owner. Replaced by ADR-004 (plugin first) on 2026-11-18, after VS Code deprecated chat participants.",
+    "resolved_at": "2026-11-18T07:45:18.743Z"
+  },
+  {
+    "n": 13,
+    "asked_at": "2026-11-18T07:45:19.733Z",
+    "task": "none",
+    "text": "Freeze the VS Code extension and never publish it to a store? VS Code deprecated chat participants: @PromptBooster does not run on the default Copilot harness, and the Local harness where it still runs is removed in February 2027 (https://code.visualstudio.com/api/extension-guides/ai/chat). ADR-004 proposes: the extension source stays in the repo, the README calls it legacy, it gets no new feature and no Marketplace or Open VSX release, and it stays usable on the Local harness until February 2027. Two manifest lines make it safer now (it does not activate in an untrusted workspace, and a workspace settings file cannot turn the MCP probe on). Known issue that stays: its catalog fingerprint in workspace state can hold env values of MCP settings. Do you accept the freeze?",
+    "status": "open"
+  },
+  {
+    "n": 14,
+    "asked_at": "2026-11-18T07:45:20.661Z",
+    "task": "none",
+    "text": "Park the engine so the first release is one instruction-only skill? The engine is the deterministic part of the extension: MCP tool discovery, the tool scorer, the response cache, the feedback log and the few-shot learning store, with 155 tests. ADR-004 proposes that the first release is only the skill /prompt-booster:boost, which is one file of instructions with no script, hook, server, or telemetry, because inside a skill the agent already sees its own tools. The engine code stays in the frozen extension and comes back as a local MCP server only if user feedback asks for deterministic tool routing or an evaluation shows that it helps. Do you accept parking it?",
+    "status": "open"
+  },
+  {
+    "n": 15,
+    "asked_at": "2026-11-18T07:45:21.622Z",
+    "task": "none",
+    "text": "Where does the plugin live: in sonqh/prompt-booster under the folder plugin/, or in a new repository? Same repo keeps one history, one set of specs, and one star count, and it is the plan in change 003-boost-skill-plugin. A new repo gives a clean install URL and clean cloner numbers, and it may be required if the spike (change 002-plugin-spike, check 01) shows that a host cannot install a plugin from a subfolder of a Git URL. Which do you prefer, and may we switch to a new repo if the spike forces it?",
+    "status": "open"
+  },
+  {
+    "n": 16,
+    "asked_at": "2026-11-18T07:45:22.612Z",
+    "task": "none",
+    "text": "Submit the skill to github/awesome-copilot under your public GitHub name? ADR-004 makes one pull request to github/awesome-copilot the main discovery channel, next to the GitHub repo itself. That repository already lists a similar free skill named boost-prompt, so our entry must state its difference (it names the first tools and waits for your OK) and will sit beside it. The pull request is opened from your account and shows your name. Do you agree to open it after the v0.1.0 tag?",
+    "status": "open"
+  },
+  {
+    "n": 17,
+    "asked_at": "2026-11-18T07:45:23.591Z",
+    "task": "none",
+    "text": "Will you run the spike and the A/B test on your own machine? No agent can do them. (1) Change 002-plugin-spike, about 2 evenings: install a small test plugin in VS Code with Copilot, the Copilot CLI, and Claude Code, and record 8 results (does it install from a Git URL, the exact slash-command name, whether disable-model-invocation is honored, whether the skill sees the live tool list, which VS Code version made the Copilot harness default, whether the CLIs run headless with a tool-call log, the Copilot app, the two legacy editor commands). (2) Change 004-evidence-and-release, about one evening: write 20 of your own vague requests with the expected first tool, then send each to Copilot raw and as /prompt-booster:boost, and record the first tool in docs/eval/ab-skill-0.1.0.csv. Pass means boosted is right on at least 3 more requests than raw and worse on at most 2; a fail changes the README text and does not stop the release; no rerun. Will you do both, and about when?",
+    "status": "open"
+  },
+  {
+    "n": 18,
+    "asked_at": "2026-11-18T07:45:24.592Z",
+    "task": "none",
+    "text": "Accept the day-90 kill rule? ADR-004 proposes: 90 days after the tag v0.1.0 of the plugin, if the GitHub repository has under 15 stars and zero feedback items from a person outside the project (issue, discussion, or message), everything is frozen: the plugin and the extension get no more work. The only signals are GitHub stars, unique cloners that you record once a week in docs/eval/signals.md, and external feedback, because the skill sends no telemetry. No paid tier before day 90. Do you accept this rule?",
+    "status": "open"
+  },
+  {
+    "n": 19,
+    "asked_at": "2026-11-18T07:45:25.585Z",
+    "task": "none",
+    "text": "Archive the Meta-MCP orchestrator, and delete the duplicate docs and the merged remote branches? (1) The Meta-MCP orchestrator (docs/meta-mcp-orchestrator-spec.md, its duplicate, docs/plan-meta-mcp-orchestrator.md) has no code; ADR-003 decision 3, kept by ADR-004, archives it and keeps the docs as history. (2) docs/promptbooster-intelligent-enhancement.md equals docs/promptbooster-enhancement-spec.md except one link, and docs/meta-mcp-orchestrator.md equals docs/meta-mcp-orchestrator-spec.md except two links; may the two non-spec copies be deleted? (3) May the remote branches refactor/model-switching (verified merged into main) and feat/tool-aware-transformation (merged by PR #2, not verified by a command) be deleted?",
     "status": "open"
   }
 ]

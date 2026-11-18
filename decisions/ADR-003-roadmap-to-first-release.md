@@ -1,5 +1,7 @@
 # ADR-003 Roadmap to the first public release
 
+**Superseded in part by ADR-004 on 2026-11-18.** Decisions 1, 2, 4, 8, and 9 no longer apply, and ADR-004 replaces the kill rule of decision 7. Decisions 3, 5, and 6 stand. The changes that this record names are parked under `openspec/parked/`. The text below is kept as it was written.
+
 Status: proposed. Date: 2026-11-18. Each decision below is proposed. The owner accepts it by merging the pull request that holds this file.
 
 ## Context
@@ -33,4 +35,4 @@ The audit of 2026-11-18 found a working extension with no public release, three 
 - Operation modes and four dead settings leave the product before the release (change 003). That change needs the owner, because users can see it.
 - The owner has work that no agent can do: store accounts, the demo GIF, the 20 golden labels, the manual A/B run, the tag, and the day-30 and day-90 readings.
 
-Refs: ADR-001, ADR-002, REQ-INJ-007, REQ-PROBE-001, REQ-REL-010, REQ-REL-015, REQ-SKILL-005
+Refs: ADR-001, ADR-002, ADR-004, REQ-PROBE-001, REQ-SKILL-005
