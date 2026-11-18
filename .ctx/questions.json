@@ -112,7 +112,9 @@
     "asked_at": "2026-11-18T07:45:19.733Z",
     "task": "none",
     "text": "Freeze the VS Code extension and never publish it to a store? VS Code deprecated chat participants: @PromptBooster does not run on the default Copilot harness, and the Local harness where it still runs is removed in February 2027 (https://code.visualstudio.com/api/extension-guides/ai/chat). ADR-004 proposes: the extension source stays in the repo, the README calls it legacy, it gets no new feature and no Marketplace or Open VSX release, and it stays usable on the Local harness until February 2027. Two manifest lines make it safer now (it does not activate in an untrusted workspace, and a workspace settings file cannot turn the MCP probe on). Known issue that stays: its catalog fingerprint in workspace state can hold env values of MCP settings. Do you accept the freeze?",
-    "status": "open"
+    "status": "resolved",
+    "answer": "Yes. The owner answered 'Dong y' in chat on 2026-11-18 15:06 (+07) to the lead's question: freeze the extension and never publish it to a store.",
+    "resolved_at": "2026-11-18T08:07:30.146Z"
   },
   {
     "n": 14,
@@ -155,5 +157,16 @@
     "task": "none",
     "text": "Archive the Meta-MCP orchestrator, and delete the duplicate docs and the merged remote branches? (1) The Meta-MCP orchestrator (docs/meta-mcp-orchestrator-spec.md, its duplicate, docs/plan-meta-mcp-orchestrator.md) has no code; ADR-003 decision 3, kept by ADR-004, archives it and keeps the docs as history. (2) docs/promptbooster-intelligent-enhancement.md equals docs/promptbooster-enhancement-spec.md except one link, and docs/meta-mcp-orchestrator.md equals docs/meta-mcp-orchestrator-spec.md except two links; may the two non-spec copies be deleted? (3) May the remote branches refactor/model-switching (verified merged into main) and feat/tool-aware-transformation (merged by PR #2, not verified by a command) be deleted?",
     "status": "open"
+  },
+  {
+    "n": 20,
+    "asked_at": "2026-11-18T08:07:21.623Z",
+    "task": "001-repo-honesty",
+    "text": "plan ready for 001-repo-honesty. Approve to start the tasks?",
+    "status": "resolved",
+    "stage": "plan",
+    "verdict": "approved",
+    "answer": "Approved by the owner in chat on 2026-11-18 15:06 (+07): he agreed that the lead starts 001-repo-honesty and prepares the spike fixture. Recorded by the lead on his behalf.",
+    "resolved_at": "2026-11-18T08:07:31.212Z"
   }
 ]
