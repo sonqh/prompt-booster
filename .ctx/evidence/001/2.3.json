@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-18T08:11:03.105Z",
+  "bundle_chars": 6363,
+  "files": {},
+  "kind": "command",
+  "reqs": [
+    "REQ-REL-004"
+  ],
+  "started_at": "2026-11-18T08:10:53.857Z",
+  "task": "001/2.3",
+  "tool_version": "0.6.0",
+  "verify": {
+    "command": "npm run compile && npm run lint && npx -y spec-ctx@0.6.0 check --strict && npx -y @fission-ai/openspec@2.1.0 validate --all --strict --no-interactive",
+    "exit": 0,
+    "stderr_tail": "  ℹ [INFO] release-and-packaging/spec.md: Archive would refuse this delta: release-and-packaging: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.",
+    "stdout_sha256": "1fe319939779a113d609f038cc1a1b1c23439316040f297ba069650ab98c909c"
+  }
+}

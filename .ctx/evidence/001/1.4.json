@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-18T08:10:05.424Z",
+  "bundle_chars": 7853,
+  "files": {},
+  "kind": "command",
+  "reqs": [
+    "REQ-REL-005"
+  ],
+  "started_at": "2026-11-18T08:10:04.416Z",
+  "task": "001/1.4",
+  "tool_version": "0.6.0",
+  "verify": {
+    "command": "! grep -qi \"automatic prompt interception\" README.md && ! grep -q \"never imports\" README.md && grep -q \"Known issues\" README.md && grep -qi \"fingerprint\" README.md && grep -qi \"workspace trust\" README.md",
+    "exit": 0,
+    "stderr_tail": "",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

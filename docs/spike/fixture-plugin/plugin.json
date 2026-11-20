@@ -1,0 +1,9 @@
+{
+  "name": "spike-fixture",
+  "version": "0.0.1",
+  "description": "Spike fixture for change 002-plugin-spike. One skill that prints a marker and its argument. Never the product.",
+  "author": {
+    "name": "Son Quach"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-18T08:10:00.032Z",
+  "bundle_chars": 7352,
+  "files": {},
+  "kind": "command",
+  "reqs": [
+    "REQ-REL-005"
+  ],
+  "started_at": "2026-11-18T08:09:07.389Z",
+  "task": "001/1.3",
+  "tool_version": "0.6.0",
+  "verify": {
+    "command": "head -30 README.md | grep -q \"Legacy\" && head -30 README.md | grep -q \"February 2027\" && head -30 README.md | grep -q \"https://code.visualstudio.com/api/extension-guides/ai/chat\" && ! head -30 README.md | grep -q \"@PromptBooster\" && grep -q \"^## .*Legacy VS Code extension\" README.md",
+    "exit": 0,
+    "stderr_tail": "",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

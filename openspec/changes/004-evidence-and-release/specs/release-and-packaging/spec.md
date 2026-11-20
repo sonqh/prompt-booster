@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: REQ-REL-005 User-facing text states real behavior
-The first 30 lines of the README SHALL hold the plugin text that the A/B record allows, the install command, and a link to the record. They SHALL say that the VS Code extension is legacy, that it runs only on the Local harness until February 2027, and SHALL link the VS Code page on chat participants. They SHALL not name `@PromptBooster`. The README SHALL not say that prompts are intercepted or that `src/core` never imports `vscode`. Its legacy section SHALL list the known open issues of the extension.
+The first 30 lines of the README SHALL hold the plugin text that the A/B record allows, the install command, and a link to the record. They SHALL call the VS Code extension legacy, give February 2027 as the end of the Local harness, link the VS Code page on chat participants, and not name `@PromptBooster`. The README SHALL not say that prompts are intercepted or that `src/core` never imports `vscode`. Its legacy section SHALL list the known issues.
 
 Refs: REQ-CHAT-001, REQ-SKILL-013, ADR-004
 

@@ -1,7 +1,7 @@
 {
   "name": "promptbooster",
   "displayName": "PromptBooster",
-  "description": "Enhance and optimize your prompts using AI before sending to GitHub Copilot",
+  "description": "Legacy (Local harness only): enhance and optimize your prompts using AI before sending to GitHub Copilot",
   "version": "0.2.4",
   "publisher": "promptbooster",
   "author": {
@@ -25,6 +25,12 @@
     "AI",
     "Other"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "PromptBooster reads MCP server configs of the workspace and can start those servers. It does not run in an untrusted workspace."
+    }
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -152,7 +158,8 @@
         "promptBooster.mcp.probeServers": {
           "type": "boolean",
           "default": false,
-          "description": "Opt in: PromptBooster may launch your configured MCP servers in the background (stdio, hard 6s timeout) to discover their real tool lists. Runs only on activation, config change, or via the 'Refresh MCP Tool Index' command — never while enhancing a prompt."
+          "scope": "machine",
+          "description": "Opt in, manual only: the 'Refresh MCP Tool Index' command starts your configured MCP servers (stdio, 6 s timeout) to read their tool lists. The probe runs only from that command."
         },
         "promptBooster.mcp.includeForeignServers": {
           "type": "boolean",
