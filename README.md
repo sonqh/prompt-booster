@@ -7,7 +7,7 @@ Status on 2026-11-18: this repository is moving to a plugin-first product. The d
 - The product is an agent plugin named `prompt-booster` with one skill, `/prompt-booster:boost`.
 - The plugin does not exist yet. You cannot install it. Its folder `plugin/` comes with a later change.
 - The VS Code extension in `src/` is legacy. It is frozen. It gets no feature and no release.
-- The extension was never published to a store.
+- Version 0.2.4 of the extension is on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=promptbooster.promptbooster). It gets no new release.
 
 ## Legacy status of the VS Code extension
 

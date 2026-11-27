@@ -6,7 +6,7 @@ All notable changes to the "PromptBooster" extension will be documented in this 
 
 ### Changed
 
-- The VS Code extension is frozen. It gets no feature and no release. It was never published to a store.
+- The VS Code extension is frozen. It gets no feature and no new release. Version 0.2.4 stays on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=promptbooster.promptbooster).
 - Reason: VS Code deprecated chat participants. A chat participant does not run on the Copilot harness. It runs only on the Local harness, and VS Code removes the Local harness in February 2027. See https://code.visualstudio.com/api/extension-guides/ai/chat
 - The product moves to an agent plugin with one skill, `/prompt-booster:boost`. The plugin does not exist yet. See [decisions/ADR-004-plugin-first.md](decisions/ADR-004-plugin-first.md).
 - Manifest: `capabilities.untrustedWorkspaces.supported` is `false`. VS Code does not activate the extension in an untrusted workspace.
@@ -22,7 +22,7 @@ All notable changes to the "PromptBooster" extension will be documented in this 
 
 ## [0.2.4] - 2026-02-22
 
-The version changed to 0.2.4 on 2026-02-22. The commits of 2026-03-09 and of 2026-09-06 to 2026-09-09 did not change the version. This entry holds them too. No build of 0.2.4 was published to a store.
+The version changed to 0.2.4 on 2026-02-22. The commits of 2026-03-09 and of 2026-09-06 to 2026-09-09 did not change the version. This entry holds them too. Version 0.2.4 is on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=promptbooster.promptbooster).
 
 ### Fixed
 
