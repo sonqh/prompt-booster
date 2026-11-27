@@ -7,7 +7,7 @@ This repository holds a frozen VS Code extension and the plan for an agent plugi
 Status, from [decisions/ADR-004-plugin-first.md](decisions/ADR-004-plugin-first.md):
 
 - The product is one agent plugin, `prompt-booster`, with one skill, `/prompt-booster:boost`. Its folder is `plugin/`. The folder does not exist yet. New work goes to the plugin.
-- The VS Code extension under `src/` is frozen. It gets no feature and no release. It was never published to a store.
+- The VS Code extension under `src/` is frozen. It gets no feature and no new release. Version 0.2.4 is on the VS Code Marketplace.
 - The chat entry `@PromptBooster` is a chat participant. VS Code deprecated chat participants. It runs only on the Local harness, which VS Code removes in February 2027.
 - The Meta-MCP orchestrator is archived. No code exists for it. Its files under `docs/` are history.
 
